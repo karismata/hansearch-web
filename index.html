@@ -1,0 +1,850 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <title>HanSearch 모바일</title>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <style>
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #f2f4f8;
+    }
+
+   .header-title {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+#result {
+  min-height: 50vh;  /* ✅ 휴대폰 화면 절반 이상 유지 */
+}
+
+.img-modal.hidden {
+  display: none;
+}
+
+/* ✅ UI 내부 이미지 뷰어 (핀치 확대 지원) */
+.img-modal {
+  position: fixed;
+  z-index: 2000;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 94%;
+  max-width: 430px;
+  height: 75vh;
+  background: rgba(0,0,0,0.9);
+  border-radius: 14px;
+  padding: 10px;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.img-modal.hidden {
+  display: none;
+}
+
+/* ✅ 이미지 뷰어 영역 */
+.img-viewer {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  touch-action: none;   /* ✅ 브라우저 기본 핀치 확대 차단 */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ✅ 실제 확대되는 이미지 */
+#imgModalContent {
+  transform-origin: center center;
+  transition: transform 0.05s linear;
+  max-width: none;
+  max-height: none;
+  width: auto;
+  height: auto;
+  user-drag: none;
+  -webkit-user-drag: none;
+  pointer-events: none;
+}
+
+/* ✅ X 버튼 (이미지 안쪽 우상단) */
+.img-close {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  font-size: 20px;
+  color: white;
+  cursor: pointer;
+  background: rgba(0,0,0,0.5);
+  border-radius: 50%;
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 3000;
+}
+
+
+
+
+
+
+
+.img-modal.hidden {
+  display: none;
+}
+
+#imgModalContent {
+  max-width: 100%;
+  max-height: 100%;
+  border-radius: 12px;
+  background: white;
+}
+
+.img-close {
+  position: absolute;
+  top: 16px;
+  right: 20px;
+  font-size: 30px;
+  color: white;
+  cursor: pointer;
+}
+
+
+
+
+
+
+.search-row {
+  display: flex;
+  gap: 8px;
+}
+
+.category-small {
+  width: 30%;
+  min-width: 90px;
+}
+
+.keyword-wide {
+  width: 70%;
+}
+
+.category {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.important-toggle {
+  margin-top: 10px;
+  display: flex;
+  justify-content: flex-end;   /* ✅ 오른쪽 정렬 유지 */
+  white-space: nowrap;        /* ✅ 줄바꿈 방지 */
+  padding-right: 12px;        /* ✅ 오른쪽 여백 */
+}
+
+.important-toggle label {
+  font-size: 13px;
+  color: #555;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+    .app {
+      max-width: 480px;
+      margin: auto;
+      min-height: 100vh;
+    }
+
+    /* ✅ 상단 헤더 */
+.header {
+  background: #1f3c88;
+  color: white;
+  padding: 18px 16px;   /* ✅ 높이 증가 */
+  font-size: 18px;
+  font-weight: bold;
+  display: flex;
+  justify-content: center;  /* ✅ 제목 가로 중앙 */
+  align-items: center;
+  position: relative;
+  min-height: 64px;         /* ✅ 최소 높이 확보 */
+}
+
+    /* ✅ 사람 아이콘 (동그라미 없이, 검은색) */
+.user-icon {
+  position: absolute;
+  right: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 22px;
+  cursor: pointer;
+  color: white;   /* ✅ 파란 배경에 흰색이 잘 보임 */
+  background: none;
+}
+    /* ✅ 드롭다운 메뉴 */
+    .user-menu {
+      position: absolute;
+      top: 60px;
+      right: 16px;
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 6px 16px rgba(0,0,0,.15);
+      overflow: hidden;
+      width: 180px;
+      display: none;
+      z-index: 1000;
+    }
+
+    .user-menu div {
+      padding: 14px;
+      font-size: 15px;
+      cursor: pointer;
+      border-bottom: 1px solid #eee;
+      color: #000;   /* 글자 검정 */
+    }
+
+    .user-menu div:last-child {
+      border-bottom: none;
+    }
+
+    .user-menu div:hover {
+      background: #f2f4f8;
+    }
+
+.box {
+  background: white;
+  margin: 0;
+  padding: 20px;
+  box-shadow: none;
+}
+
+.search-card {
+  margin: 0;
+  border-radius: 0;      /* ✅ 둥근 모서리 제거 */
+  box-shadow: none;     /* ✅ 그림자 제거 */
+}
+
+    input, select {
+      width: 100%;
+      padding: 14px;
+      font-size: 16px;
+      border-radius: 12px;
+      border: 1px solid #ddd;
+      box-sizing: border-box;
+      margin-top: 10px;
+    }
+
+    button {
+      width: 100%;
+      padding: 14px;
+      font-size: 16px;
+      border-radius: 12px;
+      border: none;
+      cursor: pointer;
+      margin-top: 12px;
+    }
+
+    .btn-primary {
+      background: #1f3c88;
+      color: white;
+    }
+
+    .hidden { display: none; }
+
+    .result-item {
+      background: #f9fafc;
+      border-radius: 12px;
+      padding: 14px;
+      margin-top: 14px;
+      font-size: 15px;
+      line-height: 1.6;
+      box-shadow: 0 2px 6px rgba(0,0,0,.05);
+      word-break: break-word;
+      white-space: normal;
+    }
+
+.category {
+  font-size: 12px;
+  color: #888;
+  margin-bottom: 2px;
+}
+    .images {
+      margin-top: 10px;
+      display: flex;
+      gap: 6px;
+      overflow-x: auto;
+    }
+
+    .images img {
+      height: 120px;
+      border-radius: 10px;
+    }
+
+    .login-title {
+      text-align: center;
+      font-weight: bold;
+      font-size: 20px;
+      margin-bottom: 16px;
+    }
+
+    .sub {
+      font-size: 13px;
+      color: #666;
+      text-align: center;
+      margin-top: 10px;
+    }
+
+    /* ✅ 페이지네이션 */
+    .pager {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 6px;
+      margin: 20px 0;
+      flex-wrap: nowrap;
+    }
+
+    .pager button {
+      padding: 8px 12px;
+      font-size: 13px;
+      background: #eee;
+      color: #333;
+      border-radius: 8px;
+      border: none;
+      min-width: 36px;
+    }
+
+    .pager button.active {
+      background: #1f3c88;
+      color: white;
+    }
+
+    .pager button.arrow {
+      font-weight: bold;
+    }
+
+
+  </style>
+</head>
+
+<body>
+<div class="app">
+
+  <!-- ✅ 헤더 -->
+<div class="header">
+  <div class="header-title">HanSearch Web</div>
+  <div class="user-icon hidden" id="userIcon" onclick="toggleUserMenu()">👤</div>
+
+    <!-- ✅ 사람 아이콘 메뉴 -->
+    <div class="user-menu" id="userMenu">
+      <div onclick="changePassword()">비밀번호 변경</div>
+      <div onclick="logout()">로그아웃</div>
+    </div>
+  </div>
+
+  <!-- ✅ 로그인 박스 -->
+  <div class="box" id="loginBox">
+    <div class="login-title">직원 로그인</div>
+    <input id="email" placeholder="이메일">
+    <input id="password" type="password" placeholder="비밀번호">
+    <button class="btn-primary" onclick="login()">로그인</button>
+    <p id="msg" class="sub"></p>
+  </div>
+
+<!-- ✅ 검색 박스 -->
+<div class="box search-card hidden" id="searchBox">
+
+  <!-- ✅ 카테고리 + 검색어 가로 배치 -->
+  <div class="search-row">
+    <select id="categorySelect" class="category-small">
+      <option value="">전체</option>
+    </select>
+
+    <input
+      id="keyword"
+      class="keyword-wide"
+      placeholder="검색어를 입력해 주세요"
+    >
+  </div>
+
+  <button class="btn-primary" onclick="search()">검색</button>
+
+<!-- ✅ 중요만 보기 토글 (검색 버튼 바로 아래 우측 정렬) -->
+<div class="important-toggle">
+  <label>
+    <input type="checkbox" id="onlyImportant">
+    중요만 보기
+  </label>
+</div>
+
+
+
+
+
+  <div id="result"></div>
+  <div class="pager" id="pager"></div>
+
+  <!-- ✅ 하단에 조그맣게 페이지 개수 선택 -->
+  <div style="text-align:center; margin:6px 0;">
+    <select id="pageSize" style="width:120px; font-size:12px; padding:6px;">
+      <option value="5">5개</option>
+      <option value="8" selected>8개</option>
+      <option value="15">15개</option>
+      <option value="30">30개</option>
+    </select>
+  </div>
+
+</div>
+
+
+<script>
+  const SUPABASE_URL = "https://trtpgahsnuddenmxuazq.supabase.co";
+  const SUPABASE_KEY = "sb_publishable_N_NBrRMNfUDwfCodR-nZ6g_KCFEZiw1";
+
+  const supabaseClient = window.supabase.createClient(
+    SUPABASE_URL,
+    SUPABASE_KEY
+  );
+   
+  let onlyImportant = false;
+
+  let allData = [];
+  let currentPage = 1;
+  let selectedCategory = "";   // 선택된 카테고리(키워드)
+  let categoryList = [];
+
+  // ✅ 로그인
+  async function login() {
+    const email = document.getElementById("email").value;
+    const password = document.getElementById("password").value;
+    document.getElementById("msg").innerText = "로그인 중...";
+
+    const { error } = await supabaseClient.auth.signInWithPassword({
+      email, password
+    });
+
+    if (error) {
+      document.getElementById("msg").innerText = "❌ 로그인 실패";
+    } else {
+      showSearch();
+    }
+  }
+
+  // ✅ 사람 아이콘 메뉴 토글
+  function toggleUserMenu() {
+    const menu = document.getElementById("userMenu");
+    menu.style.display = menu.style.display === "block" ? "none" : "block";
+  }
+
+  // ✅ 비밀번호 변경 (현재 비번 재확인 후 변경)
+  async function changePassword() {
+    const currentPw = prompt("현재 비밀번호를 입력하세요");
+    if (!currentPw) return;
+
+    const newPw = prompt("새 비밀번호를 입력하세요");
+    if (!newPw) return;
+
+    // 현재 세션에서 이메일 가져오기
+    const { data: sessionData } = await supabaseClient.auth.getSession();
+    const email = sessionData.session.user.email;
+
+    // 1단계: 현재 비밀번호로 재로그인
+    const { error: reauthError } = await supabaseClient.auth.signInWithPassword({
+      email,
+      password: currentPw
+    });
+
+    if (reauthError) {
+      alert("❌ 현재 비밀번호가 틀렸습니다.");
+      return;
+    }
+
+    // 2단계: 비밀번호 변경
+    const { error: updateError } = await supabaseClient.auth.updateUser({
+      password: newPw
+    });
+
+    if (updateError) {
+      alert("❌ 비밀번호 변경 실패");
+    } else {
+      alert("✅ 비밀번호가 성공적으로 변경되었습니다.");
+      toggleUserMenu();
+    }
+  }
+
+  // ✅ 로그아웃
+  async function logout() {
+    await supabaseClient.auth.signOut();
+    location.reload();
+  }
+
+  // ✅ 로그인 후 검색 화면 보여주기
+  function showSearch() {
+    document.getElementById("loginBox").classList.add("hidden");
+    document.getElementById("searchBox").classList.remove("hidden");
+    document.getElementById("userIcon").classList.remove("hidden");
+
+    loadCategories();   // 카테고리 로딩
+  }
+
+  // ✅ 이미 로그인 상태인지 체크
+  async function checkLogin() {
+    const { data } = await supabaseClient.auth.getSession();
+    if (data.session) showSearch();
+  }
+
+  // ✅ 카테고리(키워드) 목록 불러오기
+async function loadCategories() {
+  const { data, error } = await supabaseClient
+    .from("info")
+    .select("키워드");
+
+  if (error) {
+    console.log("카테고리 로드 실패", error);
+    return;
+  }
+
+  const select = document.getElementById("categorySelect");
+  select.innerHTML = `<option value="">전체</option>`;
+
+  const categories = [...new Set(data.map(d => d.키워드).filter(Boolean))];
+
+  categories.forEach(cat => {
+    const option = document.createElement("option");
+    option.value = cat;
+    option.innerText = cat;
+    select.appendChild(option);
+  });
+}
+
+  // ✅ 카테고리 버튼 클릭 처리
+  function selectCategory(cat, btn) {
+    selectedCategory = cat;
+
+    document.querySelectorAll(".category-btn").forEach(b => {
+      b.classList.remove("active");
+    });
+
+    btn.classList.add("active");
+  }
+
+  // ✅ 검색
+  async function search() {
+    const keyword = document.getElementById("keyword").value;
+    const category = document.getElementById("categorySelect").value;
+
+
+    const { data, error } = await supabaseClient
+      .from("info")
+      .select("*")
+      .ilike("키워드", `%${category}%`)   // 카테고리(키워드)
+      .ilike("키워드2", `%${keyword}%`); // 검색어2
+
+    if (error) {
+      alert("❌ 검색 오류");
+      return;
+    }
+
+// ✅ 중요(true) 항목을 항상 맨 위로 정렬
+data.sort((a, b) => {
+  return (b.중요 === true) - (a.중요 === true);
+});
+
+// ✅ "중요만 보기" 체크된 경우 필터
+onlyImportant = document.getElementById("onlyImportant").checked;
+
+if (onlyImportant) {
+  allData = data.filter(row => row.중요 === true);
+} else {
+  allData = data;
+}
+
+currentPage = 1;
+renderPage();
+  }
+
+  // ✅ 현재 페이지 데이터 출력
+function renderPage() {
+  const pageSize = Number(document.getElementById("pageSize").value);
+  const start = (currentPage - 1) * pageSize;
+  const end = start + pageSize;
+  const pageData = allData.slice(start, end);
+
+  const resultBox = document.getElementById("result");
+  resultBox.innerHTML = "";
+
+if (pageData.length === 0) {
+  resultBox.innerHTML =
+    '<div style="text-align:center; color:#999; padding:40px 0;">' +
+    '아직 검색된 데이터가 없습니다.' +
+    '</div>';
+  document.getElementById("pager").innerHTML = "";
+  return;
+}
+
+  pageData.forEach(row => {
+    const div = document.createElement("div");
+    div.className = "result-item";
+
+    // ✅ 카테고리
+// ✅ 카테고리 + 중요 별 표시
+const cat = document.createElement("div");
+cat.className = "category";
+
+if (row.중요 === true) {
+  cat.innerHTML = '⭐ ' + (row.키워드 || "");
+} else {
+  cat.innerText = row.키워드 || "";
+}
+
+    // ✅ 검색어2
+const kw2 = document.createElement("div");
+kw2.style.fontSize = "16px";
+kw2.style.fontWeight = "bold";
+kw2.style.color = "#1f3c88";
+kw2.style.marginBottom = "6px";
+kw2.innerText = row.키워드2 || "";
+    // ✅ 내용 + 줄바꿈 + URL 자동 링크
+    const text = document.createElement("div");
+    let content = (row.내용 || "")
+      .replace(/\\n/g, "<br>")
+      .replace(/\n/g, "<br>")
+      .replace(
+        /(https?:\/\/[^\s<]+)/g,
+        '<a href="$1" target="_blank" style="color:#1f3c88; text-decoration:underline;">$1</a>'
+      );
+    text.innerHTML = content;
+
+    // ✅ 이미지
+    const imgBox = document.createElement("div");
+    imgBox.className = "images";
+
+    if (row.이미지들) {
+      row.이미지들.split(";").forEach(url => {
+const img = document.createElement("img");
+img.src = url.trim();
+img.style.cursor = "pointer";
+img.onclick = () => openImageModal(img.src);
+imgBox.appendChild(img);
+      });
+    }
+
+    div.appendChild(cat);
+    div.appendChild(kw2);
+    div.appendChild(text);
+    div.appendChild(imgBox);
+
+    resultBox.appendChild(div);
+  });
+
+  renderPager();
+}
+
+
+  // ✅ 페이지네이션 (◀ … 7개 … ▶)
+  function renderPager() {
+    const pageSize = Number(document.getElementById("pageSize").value);
+    const totalPage = Math.ceil(allData.length / pageSize);
+    const pager = document.getElementById("pager");
+    pager.innerHTML = "";
+
+    if (totalPage <= 1) return;
+
+    const maxVisible = 7;
+    let start = Math.max(1, currentPage - Math.floor(maxVisible / 2));
+    let end = start + maxVisible - 1;
+
+    if (end > totalPage) {
+      end = totalPage;
+      start = Math.max(1, end - maxVisible + 1);
+    }
+
+    const prevBtn = document.createElement("button");
+    prevBtn.innerText = "◀";
+    prevBtn.className = "arrow";
+    prevBtn.disabled = currentPage === 1;
+    prevBtn.onclick = () => {
+      currentPage--;
+      renderPage();
+    };
+    pager.appendChild(prevBtn);
+
+    for (let i = start; i <= end; i++) {
+      const btn = document.createElement("button");
+      btn.innerText = i;
+      if (i === currentPage) btn.classList.add("active");
+      btn.onclick = () => {
+        currentPage = i;
+        renderPage();
+      };
+      pager.appendChild(btn);
+    }
+
+    const nextBtn = document.createElement("button");
+    nextBtn.innerText = "▶";
+    nextBtn.className = "arrow";
+    nextBtn.disabled = currentPage === totalPage;
+    nextBtn.onclick = () => {
+      currentPage++;
+      renderPage();
+    };
+    pager.appendChild(nextBtn);
+  }
+
+  // ✅ 페이지 개수 변경 시 다시 그리기
+  document.getElementById("pageSize").addEventListener("change", () => {
+    currentPage = 1;
+    renderPage();
+  });
+
+  // ✅ 헤더 바깥 클릭 시 메뉴 닫기
+  window.addEventListener("click", (e) => {
+    const menu = document.getElementById("userMenu");
+    const icon = document.getElementById("userIcon");
+    if (!icon.contains(e.target) && !menu.contains(e.target)) {
+      menu.style.display = "none";
+    }
+  });
+
+
+// ✅ 검색어 입력창에서 엔터 키 누르면 자동 검색
+document.getElementById("keyword").addEventListener("keydown", function(e) {
+  if (e.key === "Enter") {
+    search();
+  }
+});
+
+// ✅ 카테고리 드롭다운에서도 엔터 가능 (선택 후 바로 검색)
+document.getElementById("categorySelect").addEventListener("keydown", function(e) {
+  if (e.key === "Enter") {
+    search();
+  }
+});
+
+
+
+
+
+
+
+let scale = 1;
+let lastScale = 1;
+let startDist = 0;
+let posX = 0, posY = 0;
+let startX = 0, startY = 0;
+let isDragging = false;
+
+// ✅ 이미지 열기 (핀치 확대 + 드래그 이동)
+function openImageModal(src) {
+  const modal = document.getElementById("imgModal");
+  const img = document.getElementById("imgModalContent");
+  const viewer = document.getElementById("imgViewer");
+
+  if (!modal || !img || !viewer) return;
+
+  img.src = src;
+
+  scale = 1;
+  lastScale = 1;
+  posX = 0;
+  posY = 0;
+
+  applyTransform();
+
+  modal.classList.remove("hidden");
+  document.body.style.overflow = "hidden";
+
+  // ✅ 터치 이벤트 등록 (열릴 때만)
+  viewer.ontouchstart = e => {
+    if (e.touches.length === 1) {
+      isDragging = true;
+      startX = e.touches[0].clientX - posX;
+      startY = e.touches[0].clientY - posY;
+    }
+    if (e.touches.length === 2) {
+      startDist = getDistance(e.touches[0], e.touches[1]);
+      lastScale = scale;
+    }
+  };
+
+  viewer.ontouchmove = e => {
+    e.preventDefault();
+
+    // ✅ 한 손 이동
+    if (e.touches.length === 1 && isDragging) {
+      posX = e.touches[0].clientX - startX;
+      posY = e.touches[0].clientY - startY;
+      applyTransform();
+    }
+
+    // ✅ 두 손가락 확대
+    if (e.touches.length === 2) {
+      const currentDist = getDistance(e.touches[0], e.touches[1]);
+      scale = Math.min(Math.max(lastScale * (currentDist / startDist), 1), 5);
+      applyTransform();
+    }
+  };
+
+  viewer.ontouchend = () => {
+    isDragging = false;
+  };
+}
+
+// ✅ 이미지 닫기
+function closeImageModal() {
+  const modal = document.getElementById("imgModal");
+  if (!modal) return;
+
+  modal.classList.add("hidden");
+  document.body.style.overflow = "";
+}
+
+// ✅ 확대 적용 (img 인자 제거 → 전역 img 사용 안 함)
+function applyTransform() {
+  const img = document.getElementById("imgModalContent");
+  if (!img) return;
+
+  img.style.transform = `translate(${posX}px, ${posY}px) scale(${scale})`;
+}
+
+// ✅ 두 손가락 거리 계산
+function getDistance(t1, t2) {
+  const dx = t2.clientX - t1.clientX;
+  const dy = t2.clientY - t1.clientY;
+  return Math.sqrt(dx * dx + dy * dy);
+}
+
+
+
+
+
+
+
+
+
+
+  checkLogin();
+</script>
+
+
+
+
+
+<!-- ✅ 이미지 확대 모달 -->
+<div id="imgModal" class="img-modal hidden">
+  <span class="img-close" onclick="closeImageModal()">×</span>
+
+  <div class="img-viewer" id="imgViewer">
+    <img id="imgModalContent" />
+  </div>
+</div>
+
+</body>
+</html>
