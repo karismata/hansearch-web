@@ -9,6 +9,14 @@
 
   <style>
 
+    @supports (-webkit-touch-callout: none) {
+  body {
+    max-width: 100vw;
+    overflow-x: hidden;
+  }
+}
+
+    
 html, body {
   width: 100%;
   max-width: 100%;
@@ -363,7 +371,24 @@ body {
   flex-shrink: 0;             /* ✅ 체크박스가 영역 밀지 않게 */
 }
 
+/* ✅ iOS Safari 전용 가로 밀림 방지 */
+@supports (-webkit-touch-callout: none) {
+  .important-toggle {
+    max-width: 100vw;
+    overflow-x: hidden;
+  }
 
+  .important-toggle label {
+    max-width: calc(100vw - 40px);  /* ✅ 체크박스 + 패딩 제외 */
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .important-toggle input {
+    min-width: 16px;
+    min-height: 16px;
+  }
+}
 
     
 
@@ -890,6 +915,7 @@ function getDistance(t1, t2) {
 
 </body>
 </html>
+
 
 
 
