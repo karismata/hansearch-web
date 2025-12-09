@@ -155,13 +155,7 @@ body {
   gap: 4px;
 }
 
-.important-toggle {
-  margin-top: 10px;
-  display: flex;
-  justify-content: flex-end;   /* ✅ 오른쪽 정렬 유지 */
-  white-space: nowrap;        /* ✅ 줄바꿈 방지 */
-  padding-right: 12px;        /* ✅ 오른쪽 여백 */
-}
+
 
 .important-toggle label {
   font-size: 13px;
@@ -344,6 +338,41 @@ body {
     }
 
 
+/* ✅ 중요만 보기 - 모바일 가로 튐 완전 차단 */
+.important-toggle {
+  width: 100%;
+  max-width: 100%;
+  display: flex;
+  justify-content: flex-end;   /* ✅ 오른쪽 정렬 */
+  align-items: center;
+  padding: 6px 12px;
+  margin: 0;
+  overflow: hidden;           /* ✅ 화면 밖 밀림 차단 */
+  box-sizing: border-box;
+}
+
+.important-toggle label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  white-space: nowrap;        /* ✅ 줄바꿈 방지 */
+}
+
+.important-toggle input {
+  flex-shrink: 0;             /* ✅ 체크박스가 영역 밀지 않게 */
+}
+
+
+
+    
+
+
+
+
+
+
+    
   </style>
 </head>
 
@@ -861,6 +890,7 @@ function getDistance(t1, t2) {
 
 </body>
 </html>
+
 
 
 
