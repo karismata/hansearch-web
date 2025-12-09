@@ -6,7 +6,6 @@
   <title>HanSearch 모바일</title>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
   <style>
 
@@ -27,10 +26,11 @@ body {
   background: #f2f4f8;
 }
 
-   .header-title {
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
+.header-title {
+  position: relative;
+  text-align: center;
+  left: 0;
+  transform: none;
 }
 
 #result {
@@ -861,5 +861,6 @@ function getDistance(t1, t2) {
 
 </body>
 </html>
+
 
 
