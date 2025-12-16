@@ -32,7 +32,7 @@
       background: #f2f4f8;
     }
 
-    /* ✅ 모달 열렸을 때 전체 스크롤 차단 */
+    /* 모달 열렸을 때 전체 스크롤 차단 */
     body.no-scroll {
       overflow: hidden;
     }
@@ -43,7 +43,7 @@
       min-height: 100vh;
     }
 
-    /* ✅ PC 모드 (body에 pc-mode 클래스) */
+    /* PC 모드 */
     body.pc-mode {
       background: #e9ecf3;
     }
@@ -96,6 +96,7 @@
     }
 
     .img-viewer {
+      position: relative;  /* 슬라이더 버튼 위치 기준 */
       width: 100%;
       height: 100%;
       overflow: hidden;
@@ -106,34 +107,61 @@
       cursor: grab;
     }
 
-#imgModalContent {
-  transform-origin: center center;
-  transition: transform 0.05s linear;
+    #imgModalContent {
+      transform-origin: center center;
+      transition: transform 0.05s linear;
 
-  max-width: 100%;
-  max-height: 100%;
-  width: auto;
-  height: auto;
-  object-fit: contain;   /* 📌 비율 유지 */
+      max-width: 100%;
+      max-height: 100%;
+      width: auto;
+      height: auto;
+      object-fit: contain;   /* 비율 유지 */
 
-  user-drag: none;
-  -webkit-user-drag: none;
+      user-drag: none;
+      -webkit-user-drag: none;
 
-  pointer-events: none;  /* 👉 유지 (드래그 충돌 방지) */
-  border-radius: 12px;
-  background: white;
-}
+      pointer-events: none;  /* 드래그 충돌 방지 */
+      border-radius: 12px;
+      background: white;
+    }
 
+    .img-close {
+      position: absolute;
+      top: 16px;
+      right: 20px;
+      font-size: 30px;
+      color: white;
+      cursor: pointer;
+      z-index: 3000;
+    }
 
-.img-close {
-  position: absolute;
-  top: 16px;
-  right: 20px;
-  font-size: 30px;
-  color: white;
-  cursor: pointer;
-  z-index: 3000;   /* ← 추가: 이미지보다 항상 위 */
-}
+    /* 슬라이더 버튼 */
+    .img-prev,
+    .img-next {
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 32px;
+      height: 32px;
+      border: none;
+      border-radius: 50%;
+      background: rgba(0,0,0,0.6);
+      color: #fff;
+      font-size: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      z-index: 3000;
+    }
+
+    .img-prev {
+      left: 10px;
+    }
+
+    .img-next {
+      right: 10px;
+    }
 
     /* ============= 기본 UI ============= */
 
@@ -498,7 +526,7 @@
     location.reload();
   }
 
-  // ✅ 로그인 후 화면 전환 (여기서 로그인 박스 완전 숨김)
+  // 로그인 후 화면 전환
   function showSearch() {
     const loginBox = document.getElementById("loginBox");
     const searchBox = document.getElementById("searchBox");
@@ -635,10 +663,15 @@
       imgBox.className = "images";
 
       if (row.이미지들) {
-        row.이미지들.split(";").forEach(url => {
+        const imgUrls = row.이미지들
+          .split(";")
+          .map(u => u.trim())
+          .filter(u => u);
+
+        imgUrls.forEach((url, i) => {
           const img = document.createElement("img");
-          img.src = url.trim();
-          img.onclick = () => openImageModal(img.src);
+          img.src = url;
+          img.onclick = () => openImageModal(imgUrls, i);   // 슬라이더용
           imgBox.appendChild(img);
         });
       }
@@ -733,12 +766,16 @@
     btn.innerText = document.body.classList.contains("pc-mode") ? "모바일 모드" : "PC 모드";
   }
 
-  /* ========= 이미지 확대 / 드래그 / 휠 확대 ========= */
+  /* ========= 이미지 확대 / 드래그 / 휠 확대 + 슬라이더 ========= */
 
   let scale = 1;
   let posX = 0, posY = 0;
   let dragStartX = 0, dragStartY = 0;
   let isDragging = false;
+
+  // 슬라이더 데이터
+  let galleryImages = [];
+  let currentIndex = 0;
 
   function applyTransform() {
     const img = document.getElementById("imgModalContent");
@@ -746,18 +783,28 @@
     img.style.transform = `translate(${posX}px, ${posY}px) scale(${scale})`;
   }
 
-  function openImageModal(src) {
-    const modal = document.getElementById("imgModal");
-    const viewer = document.getElementById("imgViewer");
+  function loadModalImage() {
     const img = document.getElementById("imgModalContent");
-
-    if (!modal || !viewer || !img) return;
-
-    img.src = src;
+    if (!img || galleryImages.length === 0) return;
+    img.src = galleryImages[currentIndex];
+    // 이미지 바꿀 때마다 위치/배율 리셋
     scale = 1;
     posX = 0;
     posY = 0;
     applyTransform();
+  }
+
+  // 이미지 모달 열기 (여러 이미지 + 시작 인덱스)
+  function openImageModal(images, index) {
+    const modal = document.getElementById("imgModal");
+    const viewer = document.getElementById("imgViewer");
+
+    if (!modal || !viewer) return;
+
+    galleryImages = images || [];
+    currentIndex = index || 0;
+
+    loadModalImage();
 
     modal.classList.remove("hidden");
     document.body.classList.add("no-scroll");
@@ -798,36 +845,52 @@
     document.body.classList.remove("no-scroll");
   }
 
-  // ✅ 초기 로그인 체크
+  // 이전/다음 이미지
+  function prevImage() {
+    if (!galleryImages.length) return;
+    currentIndex = (currentIndex - 1 + galleryImages.length) % galleryImages.length;
+    loadModalImage();
+  }
+
+  function nextImage() {
+    if (!galleryImages.length) return;
+    currentIndex = (currentIndex + 1) % galleryImages.length;
+    loadModalImage();
+  }
+
+  // 초기 로그인 체크
   checkLogin();
 
-  // ✅ 이미지 모달 바깥 클릭 시 닫기 (이미지 클릭은 유지)
-document.addEventListener("DOMContentLoaded", () => {
-  const modal = document.getElementById("imgModal");
-  const viewer = document.getElementById("imgViewer");
+  // 이미지 모달 바깥 클릭 시 닫기 (이미지/버튼 클릭은 유지)
+  document.addEventListener("DOMContentLoaded", () => {
+    const modal = document.getElementById("imgModal");
+    const viewer = document.getElementById("imgViewer");
 
-  if (!modal || !viewer) return;
+    if (!modal || !viewer) return;
 
-  viewer.addEventListener("click", (e) => {
-    e.stopPropagation();
+    // 모달 내부(viewer) 클릭은 닫기 막기
+    viewer.addEventListener("click", (e) => {
+      e.stopPropagation();
+    });
+
+    // 바깥(어두운 영역) 클릭 시 닫기
+    modal.addEventListener("click", () => {
+      closeImageModal();
+    });
   });
-
-  modal.addEventListener("click", () => {
-    closeImageModal();
-  });
-});
 </script>
 
-<!-- ✅ 이미지 확대 모달 -->
+<!-- 이미지 확대 모달 -->
 <div id="imgModal" class="img-modal hidden">
-  <!-- X 버튼은 그대로 둠 -->
   <span class="img-close" onclick="closeImageModal()">×</span>
+
   <div class="img-viewer" id="imgViewer">
+    <button type="button" class="img-prev" onclick="prevImage()">‹</button>
     <img id="imgModalContent" />
+    <button type="button" class="img-next" onclick="nextImage()">›</button>
   </div>
 </div>
 
 </div>
 </body>
 </html>
-
