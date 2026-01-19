@@ -1,9 +1,12 @@
 <!DOCTYPE html>
 <html lang="ko">
+
 <head>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <meta charset="UTF-8" />
-  <title>HanSearch 모바일</title>
+  <title>HanSearch</title>
+  <!-- Google Fonts: Roboto -->
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 
@@ -15,7 +18,8 @@
       }
     }
 
-    html, body {
+    html,
+    body {
       width: 100%;
       max-width: 100%;
       overflow-x: hidden;
@@ -28,8 +32,12 @@
     }
 
     body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      background: #f2f4f8;
+      font-family: 'Roboto', arial, sans-serif;
+      font-family: 'Roboto', arial, sans-serif;
+      background: #292a2d;
+      /* Google Dark Background (Chrome New Tab) */
+      color: #e8eaed;
+      margin: 0;
     }
 
     /* 모달 열렸을 때 전체 스크롤 차단 */
@@ -38,24 +46,24 @@
     }
 
     .app {
-      max-width: 480px;
+      width: 100%;
       margin: auto;
       min-height: 100vh;
     }
 
-    /* PC 모드 */
-    body.pc-mode {
-      background: #e9ecf3;
-    }
+    /* PC 모드 스타일 */
     body.pc-mode .app {
       max-width: 1200px;
     }
+
     body.pc-mode .result-item {
       font-size: 16px;
     }
+
     body.pc-mode .images img {
       height: 160px;
     }
+
     body.pc-mode .img-modal {
       width: 90%;
       max-width: 1200px;
@@ -73,6 +81,10 @@
       min-height: 50vh;
     }
 
+
+
+
+
     /* ============= 이미지 모달 ============= */
 
     .img-modal {
@@ -84,19 +96,20 @@
       width: 94%;
       max-width: 430px;
       height: 75vh;
-      background: rgba(0,0,0,0.9);
+      background: rgba(0, 0, 0, 0.9);
       border-radius: 14px;
       padding: 10px;
       box-sizing: border-box;
       overflow: hidden;
     }
 
-    .img-modal.hidden {
-      display: none;
+    .hidden {
+      display: none !important;
     }
 
     .img-viewer {
-      position: relative;  /* 슬라이더 버튼 위치 기준 */
+      position: relative;
+      /* 슬라이더 버튼 위치 기준 */
       width: 100%;
       height: 100%;
       overflow: hidden;
@@ -115,12 +128,13 @@
       max-height: 100%;
       width: auto;
       height: auto;
-      object-fit: contain;   /* 비율 유지 */
+      object-fit: contain;
+      /* 비율 유지 */
 
-      user-drag: none;
       -webkit-user-drag: none;
-
-      pointer-events: none;  /* 드래그 충돌 방지 */
+      user-select: none;
+      pointer-events: none;
+      /* 드래그 충돌 방지 */
       border-radius: 12px;
       background: white;
     }
@@ -141,26 +155,32 @@
       position: absolute;
       top: 50%;
       transform: translateY(-50%);
-      width: 32px;
-      height: 32px;
+      width: 54px;
+      height: 54px;
       border: none;
       border-radius: 50%;
-      background: rgba(0,0,0,0.6);
+      background: rgba(0, 0, 0, 0.6);
       color: #fff;
-      font-size: 20px;
+      font-size: 32px;
       display: flex;
       align-items: center;
       justify-content: center;
       cursor: pointer;
       z-index: 3000;
+      transition: background 0.2s;
+    }
+
+    .img-prev:hover,
+    .img-next:hover {
+      background: rgba(0, 0, 0, 0.8);
     }
 
     .img-prev {
-      left: 10px;
+      left: 20px;
     }
 
     .img-next {
-      right: 10px;
+      right: 20px;
     }
 
     /* ============= 기본 UI ============= */
@@ -180,9 +200,8 @@
     }
 
     .category {
-      display: flex;
-      align-items: center;
-      gap: 4px;
+      display: block;
+      margin-bottom: 8px;
     }
 
     .header {
@@ -215,7 +234,7 @@
       right: 16px;
       background: white;
       border-radius: 12px;
-      box-shadow: 0 6px 16px rgba(0,0,0,.15);
+      box-shadow: 0 6px 16px rgba(0, 0, 0, .15);
       overflow: hidden;
       width: 180px;
       display: none;
@@ -239,658 +258,1675 @@
     }
 
     .box {
-      background: white;
-      margin: 0;
-      padding: 20px;
-      box-shadow: none;
-    }
-
-    .search-card {
-      margin: 0;
-      border-radius: 0;
-      box-shadow: none;
-    }
-
-    input, select {
-      width: 100%;
-      padding: 14px;
-      font-size: 16px;
+      background: #303134;
+      padding: 30px;
       border-radius: 12px;
-      border: 1px solid #ddd;
-      box-sizing: border-box;
-      margin-top: 10px;
-    }
-
-    button {
-      width: 100%;
-      padding: 14px;
-      font-size: 16px;
-      border-radius: 12px;
-      border: none;
-      cursor: pointer;
-      margin-top: 12px;
-    }
-
-    .btn-primary {
-      background: #1f3c88;
-      color: white;
-    }
-
-    .hidden {
-      display: none;
-    }
-
-    .result-item {
-      background: #f9fafc;
-      border-radius: 12px;
-      padding: 14px;
-      margin-top: 14px;
-      font-size: 15px;
-      line-height: 1.6;
-      box-shadow: 0 2px 6px rgba(0,0,0,.05);
-      word-break: break-word;
-      white-space: normal;
-    }
-
-    .category {
-      font-size: 12px;
-      color: #888;
-      margin-bottom: 2px;
-    }
-
-    .images {
-      margin-top: 10px;
-      display: flex;
-      gap: 6px;
-      overflow-x: auto;
-    }
-
-    .images img {
-      height: 120px;
-      border-radius: 10px;
-      cursor: pointer;
+      width: 90%;
+      max-width: 400px;
+      margin: auto;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+      text-align: center;
     }
 
     .login-title {
-      text-align: center;
+      font-size: 24px;
       font-weight: bold;
-      font-size: 20px;
-      margin-bottom: 16px;
+      margin-bottom: 20px;
+      color: #fff;
+    }
+
+    .box input {
+      width: 100%;
+      padding: 12px;
+      margin-bottom: 12px;
+      border-radius: 6px;
+      border: 1px solid #5f6368;
+      background: #202124;
+      color: #fff;
+      outline: none;
+    }
+
+    .btn-primary {
+      width: 100%;
+      padding: 12px;
+      background: #8ab4f8;
+      color: #202124;
+      border: none;
+      border-radius: 6px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    .btn-primary:hover {
+      background: #aecbfa;
     }
 
     .sub {
-      font-size: 13px;
-      color: #666;
-      text-align: center;
-      margin-top: 10px;
+      margin-top: 15px;
+      font-size: 14px;
+      color: #9aa0a6;
     }
 
+    /* =========================================
+       NEW LAYOUT: Split Home & Search
+       ========================================= */
+
+    /* --- Home Screen --- */
+    #homeScreen {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding-top: 100px;
+      /* Adjust as needed */
+      width: 100%;
+      max-width: 800px;
+      /* Centered width */
+      margin: 0 auto;
+    }
+
+    .home-logo {
+      font-family: 'Product Sans', 'Century Gothic', 'Roboto', sans-serif;
+      font-size: 88px;
+      font-weight: 700;
+      color: #ffffff;
+      margin-bottom: 30px;
+      letter-spacing: -2px;
+      text-align: center;
+    }
+
+    /* Home Search Bar: White in User Screenshot */
+    /* Home Search Bar: Updated to Dark Grey */
+    .home-search-bar {
+      width: 100%;
+      max-width: 640px;
+      height: 54px;
+      background: #4d4d4d;
+      /* More Lighter Grey */
+      border: 1px solid #5f6368;
+      border-radius: 27px;
+      display: flex;
+      align-items: center;
+      padding: 0 20px;
+      position: relative;
+    }
+
+    .home-input {
+      border: none;
+      outline: none;
+      font-size: 16px;
+      color: #ffffff;
+      /* Light text on dark bar */
+      flex: 1;
+      height: 100%;
+      background: transparent;
+      ime-mode: active;
+      /* Attempt to force Korean IME */
+    }
+
+    .home-input::placeholder {
+      color: #ffffff;
+      opacity: 0.9;
+    }
+
+    .home-icons-right {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+      color: #5f6368;
+    }
+
+    /* Shortcuts Grid */
+    .shortcut-grid {
+      display: flex;
+      gap: 24px;
+      margin-top: 30px;
+      justify-content: center;
+    }
+
+    .shortcut-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+    }
+
+    .shortcut-circle {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      background: #303134;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      color: #e8eaed;
+    }
+
+    .shortcut-label {
+      font-size: 12px;
+      color: #e8eaed;
+      text-align: center;
+    }
+
+    /* Drive Widget (Recent Files style) */
+    .drive-widget {
+      width: 100%;
+      max-width: 640px;
+      background: #303134;
+      /* Dark Card */
+      border-radius: 8px;
+      margin-top: 40px;
+      padding: 10px 0;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+    }
+
+    .drive-header {
+      padding: 10px 20px;
+      font-size: 14px;
+      font-weight: 500;
+      color: #e8eaed;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .drive-list {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .drive-item {
+      display: flex;
+      align-items: center;
+      padding: 12px 20px;
+      gap: 15px;
+      cursor: pointer;
+    }
+
+    .drive-item:hover {
+      background: #3c4043;
+    }
+
+    .drive-icon-box {
+      width: 36px;
+      height: 36px;
+      border-radius: 4px;
+      background: #202124;
+      /* Darker placeholder */
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #8ab4f8;
+    }
+
+    .drive-info {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+
+    .drive-title {
+      font-size: 14px;
+      color: #e8eaed;
+    }
+
+    .drive-sub {
+      font-size: 11px;
+      color: #9aa0a6;
+      margin-top: 2px;
+    }
+
+    /* Recent Search Detail Accordion */
+    .recent-detail {
+      display: none;
+      padding: 0 20px 20px 60px;
+      border: none;
+      background: transparent;
+    }
+
+    .recent-detail.active {
+      display: block;
+    }
+
+    /* --- Search Result Screen --- */
+    #searchScreen {
+      display: none;
+      /* Hidden by default */
+      width: 100%;
+    }
+
+    #searchScreen.active {
+      display: block;
+    }
+
+    /* Search Header */
+    .search-header {
+      background: #292a2d;
+      border-bottom: 1px solid #3c4043;
+      padding: 16px 0 0 0;
+      /* Padding moved to inner wrapper logic */
+      position: sticky;
+      top: 0;
+      z-index: 1000;
+      display: flex;
+      justify-content: center;
+      /* Center the wrapper */
+    }
+
+    .header-top {
+      display: flex;
+      align-items: center;
+      gap: 30px;
+      margin-bottom: 16px;
+    }
+
+    .header-logo {
+      font-family: 'Product Sans', 'Century Gothic', 'Roboto', sans-serif;
+      font-size: 24px;
+      font-weight: 700;
+      color: #ffffff;
+      cursor: pointer;
+      text-decoration: none;
+      display: flex;
+      align-items: center;
+    }
+
+    .header-search-bar {
+      flex: 1;
+      max-width: 690px;
+      height: 44px;
+      background: #4d4d4d;
+      /* Dark Grey */
+      border-radius: 22px;
+      display: flex;
+      align-items: center;
+      padding: 0 20px;
+      position: relative;
+    }
+
+    .header-input {
+      background: transparent;
+      border: none;
+      outline: none;
+      color: #ffffff;
+      font-size: 16px;
+      flex: 1;
+      height: 100%;
+      ime-mode: active;
+      /* Attempt to force Korean IME */
+    }
+
+    .header-input::placeholder {
+      color: #ffffff;
+      opacity: 0.9;
+    }
+
+    .header-icons {
+      display: flex;
+      gap: 12px;
+      color: #9aa0a6;
+      align-items: center;
+    }
+
+    /* Nav Tabs Removed */
+
+    .search-content {
+      padding: 20px 0;
+      /* Aligned with Home (Center 800px) */
+      margin: 0 auto;
+      max-width: 800px;
+      width: 100%;
+    }
+
+
+    /* Search Result Area */
+    #searchResultArea {
+      width: 100%;
+      max-width: 800px;
+      margin-top: 20px;
+      /* Default hidden */
+      padding-bottom: 60px;
+    }
+
+    .search-mode #searchResultArea {
+      display: block;
+    }
+
+    /* Result Item (Divider Style) */
+    .result-item {
+      padding: 20px 0;
+      border-bottom: 1px solid #3c4043;
+      width: 100%;
+      box-sizing: border-box;
+      min-height: 120px;
+      /* Standardize minimum height */
+    }
+
+    .result-item:last-child {
+      border-bottom: none;
+    }
+
+    /* Helper: Mode Toggle Button visibility */
+    /* Helper: Mode Toggle Button visibility */
+    .bs-controls {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      display: flex;
+      gap: 8px;
+    }
+
+    /* Ensure app-container centers content properly */
+    .app-container {
+      position: relative;
+      /* For absolute elements inside */
+      max-width: 100%;
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    /* 기존 스타일 덮어쓰기/조정 */
+    .header {
+      display: none;
+    }
+
+    /* 기존 헤더 숨김 */
+    .box {
+      box-shadow: none;
+      background: transparent;
+      padding: 0;
+    }
+
+    body.pc-mode .app-container {
+      max-width: 1000px;
+      margin: 0 auto;
+    }
+
+    /* Code Review Refactor: New Classes */
+    .result-keyword2 {
+      font-size: 16px;
+      font-weight: bold;
+      color: #8ab4f8;
+      /* Updated to Bright Blue */
+      margin-bottom: 6px;
+    }
+
+    .result-content {
+      white-space: pre-wrap;
+      /* Handle newlines via CSS */
+      word-break: break-all;
+    }
+
+    .result-link {
+      color: #8ab4f8;
+      text-decoration: underline;
+    }
+
+    /* Accordion styles for long content */
+    .result-content-container {
+      position: relative;
+      margin-bottom: 10px;
+    }
+
+    .result-content-wrapper {
+      max-height: 180px;
+      /* Default collapsed height */
+      overflow: hidden;
+      transition: max-height 0.3s ease-out;
+      position: relative;
+    }
+
+    .result-content-wrapper.expanded {
+      max-height: none;
+    }
+
+    .content-fade {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 40px;
+      background: linear-gradient(transparent, #292a2d);
+      pointer-events: none;
+      transition: opacity 0.3s;
+    }
+
+    .expanded .content-fade {
+      opacity: 0;
+    }
+
+    .toggle-more-btn {
+      background: none;
+      border: none;
+      color: #8ab4f8;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      padding: 5px 0;
+      display: none;
+      /* Hidden by default, shown by JS if needed */
+      align-items: center;
+      gap: 4px;
+    }
+
+    .toggle-more-btn:hover {
+      text-decoration: underline;
+    }
+
+    /* Tabs styling */
+    .nav-tabs {
+      display: flex;
+      gap: 20px;
+      margin-top: 10px;
+      border-bottom: 1px solid #3c4043;
+    }
+
+    .nav-tab {
+      padding: 10px 5px;
+      color: #9aa0a6;
+      cursor: pointer;
+      font-size: 14px;
+      border-bottom: 3px solid transparent;
+      user-select: none;
+    }
+
+    .nav-tab.active {
+      color: #8ab4f8;
+      border-bottom: 3px solid #8ab4f8;
+      font-weight: bold;
+    }
+
+    /* Image Grid styling */
+    .image-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 15px;
+      padding: 20px 0;
+      width: 100%;
+    }
+
+    .image-grid-item {
+      aspect-ratio: 1;
+      overflow: hidden;
+      border-radius: 12px;
+      cursor: pointer;
+      background: #303134;
+      position: relative;
+    }
+
+    .image-grid-item img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transition: transform 0.3s;
+    }
+
+    .image-grid-item:hover img {
+      transform: scale(1.08);
+    }
+
+    .image-grid-overlay {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: linear-gradient(transparent, rgba(0, 0, 0, 0.8));
+      padding: 10px;
+      color: white;
+      font-size: 12px;
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+
+    .image-grid-item:hover .image-grid-overlay {
+      opacity: 1;
+    }
+
+    /* Pager (Pagination) Styling */
     .pager {
       display: flex;
       justify-content: center;
       align-items: center;
-      gap: 6px;
-      margin: 20px 0;
-      flex-wrap: nowrap;
+      gap: 5px;
+      margin: 40px 0;
+      width: 100%;
     }
 
     .pager button {
-      padding: 8px 12px;
-      font-size: 13px;
-      background: #eee;
-      color: #333;
-      border-radius: 8px;
-      border: none;
+      background: transparent;
+      border: 1px solid transparent;
+      color: #bdc1c6;
+      padding: 8px 14px;
+      font-size: 14px;
+      cursor: pointer;
+      border-radius: 4px;
+      transition: all 0.2s;
       min-width: 36px;
     }
 
+    .pager button:hover:not(:disabled) {
+      background: rgba(232, 234, 237, 0.08);
+      color: #e8eaed;
+      border: 1px solid #5f6368;
+    }
+
     .pager button.active {
-      background: #1f3c88;
-      color: white;
-    }
-
-    .pager button.arrow {
+      background: #8ab4f8;
+      color: #202124;
       font-weight: bold;
+      border-color: #8ab4f8;
     }
 
-    input[type="checkbox"] {
-      display: none !important;
+    .pager button:disabled {
+      color: #5f6368;
+      cursor: default;
     }
 
-    .bottom-control-wrap {
+    /* Center search content and pager together */
+    .search-content {
       display: flex;
-      justify-content: center;
+      flex-direction: column;
       align-items: center;
-      gap: 10px;
-      margin: 6px 0 12px;
-    }
-
-    .page-size-select,
-    .pc-toggle-btn {
-      width: 90px;
-      height: 34px;
-      font-size: 12px;
-      line-height: 34px;
-      border-radius: 10px;
-      border: 1px solid #ccc;
-      box-sizing: border-box;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      padding: 0 10px;
-    }
-
-    .page-size-select {
-      background: #fff;
-      color: #000;
-    }
-
-    .pc-toggle-btn {
-      background: #1f3c88;
-      color: #fff;
-      cursor: pointer;
-      white-space: nowrap;
     }
   </style>
 </head>
 
 <body>
-<div class="app">
+  <div class="app">
 
-  <!-- 헤더 -->
-  <div class="header">
-    <div class="header-title">HanSearch Web</div>
-    <div class="user-icon hidden" id="userIcon" onclick="toggleUserMenu()">👤</div>
+    <!-- 헤더 -->
+    <!-- 헤더 (Removed Legacy) -->
 
-    <div class="user-menu" id="userMenu">
+    <!-- 로그인 박스 (Existing Logic - Keeping it hidden or available?)
+         Actually user wants "Home Screen" like screenshot.
+         I will wrap login box in a wrapper to center it if needed, but for now assuming login is passed.
+    -->
+    <div id="loginBox" class="app-container"
+      style="min-height: 80vh; display: flex; align-items: center; justify-content: center;">
+      <div class="box" style="margin: auto;">
+        <div class="login-title">HanSearch 로그인</div>
+        <input id="email" placeholder="이메일">
+        <input id="password" type="password" placeholder="비밀번호">
+        <button class="btn-primary" onclick="login()">로그인</button>
+        <p id="msg" class="sub"></p>
+      </div>
+    </div>
+
+    <!-- MAIN APP CONTAINER -->
+    <div id="mainApp" class="hidden">
+
+      <!-- Top Right Menu (Common) -->
+      <div class="bs-controls"
+        style="position: absolute; top: 20px; right: 20px; z-index: 2000; display:flex; align-items: center; gap: 15px;">
+        <span id="userIcon" onclick="toggleUserMenu()"
+          style="font-size: 24px; color: #e8eaed; cursor: pointer; padding: 5px; border-radius: 50%; transition: background 0.2s;"
+          onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='transparent'">
+          &#9783;
+        </span>
+      </div>
+
+      <!-- 1. HOME SCREEN -->
+      <div id="homeScreen">
+        <div class="home-logo">HanSearch</div>
+
+        <div class="home-search-bar">
+          <input id="homeKeyword" class="home-input" placeholder="검색어를 입력해주세요">
+          <div class="home-icons-right">
+            <span style="cursor:pointer; color:#8ab4f8; display: flex; align-items: center;" onclick="search()">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="11" cy="11" r="8"></circle>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+              </svg>
+            </span>
+          </div>
+        </div>
+
+        <!-- Drive Widget (Acts as Recent Search / Files) -->
+        <div class="drive-widget">
+          <div class="drive-header">
+            <span>최근 검색어</span>
+            <span style="cursor:pointer">⋮</span>
+          </div>
+          <div class="drive-list" id="homeRecentList">
+            <!-- Populated by JS -->
+          </div>
+        </div>
+      </div>
+
+      <!-- 2. SEARCH RESULT SCREEN -->
+      <div id="searchScreen">
+        <div class="search-header">
+          <div style="max-width: 800px; width: 100%; display: flex; flex-direction: column;">
+            <div class="header-top">
+              <div class="header-logo" onclick="goHome()">Home</div>
+              <div class="header-search-bar">
+                <input id="headerKeyword" class="header-input" value="">
+                <div class="header-icons">
+                  <span style="cursor:pointer; color:#8ab4f8; display:flex; align-items:center;" onclick="search()">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                      stroke-linecap="round" stroke-linejoin="round">
+                      <circle cx="11" cy="11" r="8"></circle>
+                      <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                    </svg>
+                  </span>
+                </div>
+              </div>
+            </div>
+            <div class="search-row"
+              style="display:flex; align-items:center; gap:15px; margin-top:10px; padding-bottom:10px;">
+              <select id="categorySelect" onchange="runSearchFilter()"
+                style="padding:4px; background:#303134; color:#e8eaed; border:1px solid #5f6368;">
+                <option value="">전체 카테고리</option>
+              </select>
+              <div style="color:#9aa0a6; font-size:14px;" id="resultCount"></div>
+              <select id="pageSize" style="padding:4px; background:#303134; color:#e8eaed; border:1px solid #5f6368;">
+                <option value="5">5개</option>
+                <option value="8" selected>8개</option>
+                <option value="15">15개</option>
+                <option value="30">30개</option>
+              </select>
+              <label style="color:#9aa0a6; font-size:14px; display:flex; align-items:center; gap:5px; cursor:pointer;">
+                <input type="checkbox" id="highlightToggle" onchange="toggleHighlight()"> 강조
+              </label>
+            </div>
+            <div class="nav-tabs">
+              <div class="nav-tab active" id="tabTotal" onclick="switchSearchTab('total')">전체</div>
+              <div class="nav-tab" id="tabImages" onclick="switchSearchTab('images')">이미지</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="search-content">
+          <div id="searchResultArea">
+            <!-- Results go here -->
+            <!-- Filters Moved to Header -->
+
+            <div id="result"></div>
+            <div id="imageGrid" class="image-grid" style="display:none;"></div>
+            <div class="pager" id="pager" style="margin-top: 20px;"></div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- User Menu Dropdown -->
+    <div class="user-menu" id="userMenu" style="top: 60px; right: 20px;">
       <div onclick="changePassword()">비밀번호 변경</div>
       <div onclick="logout()">로그아웃</div>
     </div>
-  </div>
+    <!-- 검색 박스 (Removed Legacy) -->
 
-  <!-- 로그인 박스 -->
-  <div class="box" id="loginBox">
-    <div class="login-title">직원 로그인</div>
-    <input id="email" placeholder="이메일">
-    <input id="password" type="password" placeholder="비밀번호">
-    <button class="btn-primary" onclick="login()">로그인</button>
-    <p id="msg" class="sub"></p>
-  </div>
+    <script>
+      const SUPABASE_URL = "https://trtpgahsnuddenmxuazq.supabase.co";
+      const SUPABASE_KEY = "sb_publishable_N_NBrRMNfUDwfCodR-nZ6g_KCFEZiw1";
 
-  <!-- 검색 박스 -->
-  <div class="box search-card hidden" id="searchBox">
+      const supabaseClient = window.supabase.createClient(
+        SUPABASE_URL,
+        SUPABASE_KEY
+      );
 
-    <div class="search-row">
-      <select id="categorySelect" class="category-small">
-        <option value="">전체</option>
-      </select>
+      let allCachedData = null; // Data Cache
+      let allData = []; // Current filtered result set
+      let currentPage = 1;
+      let focusedResultIndex = -1;
+      let selectedCategory = "";
+      let categoryList = [];
+      let currentViewMode = "total"; // 'total' or 'images'
+      const LINE_SEP_TOKEN = "␤";
+      let useHighlight = localStorage.getItem("useHighlight") !== "false"; // Default true
 
-      <input
-        id="keyword"
-        class="keyword-wide"
-        placeholder="검색어를 입력해 주세요"
-      >
-    </div>
+      // 로그인
+      async function login() {
+        const email = document.getElementById("email").value;
+        const password = document.getElementById("password").value;
+        document.getElementById("msg").innerText = "로그인 중...";
 
-    <button class="btn-primary" onclick="search()">검색</button>
-    <div id="result"></div>
-    <div class="pager" id="pager"></div>
+        const { error } = await supabaseClient.auth.signInWithPassword({
+          email, password
+        });
 
-    <!-- 하단 컨트롤 -->
-    <div class="bottom-control-wrap">
-      <select id="pageSize" class="page-size-select">
-        <option value="5">5개</option>
-        <option value="8" selected>8개</option>
-        <option value="15">15개</option>
-        <option value="30">30개</option>
-      </select>
+        if (error) {
+          document.getElementById("msg").innerText = "❌ 로그인 실패";
+        } else {
+          document.getElementById("msg").innerText = "";
+          showSearch();
+        }
+      }
 
-      <button class="pc-toggle-btn" onclick="togglePCMode()">
-        PC 모드
-      </button>
-    </div>
+      function toggleUserMenu() {
+        const menu = document.getElementById("userMenu");
+        menu.style.display = menu.style.display === "block" ? "none" : "block";
+      }
 
-  </div>
+      async function changePassword() {
+        const currentPw = prompt("현재 비밀번호를 입력하세요");
+        if (!currentPw) return;
 
-<script>
-  const SUPABASE_URL = "https://trtpgahsnuddenmxuazq.supabase.co";
-  const SUPABASE_KEY = "sb_publishable_N_NBrRMNfUDwfCodR-nZ6g_KCFEZiw1";
+        const newPw = prompt("새 비밀번호를 입력하세요");
+        if (!newPw) return;
 
-  const supabaseClient = window.supabase.createClient(
-    SUPABASE_URL,
-    SUPABASE_KEY
-  );
+        const { data: sessionData } = await supabaseClient.auth.getSession();
+        const email = sessionData.session.user.email;
 
-  let allData = [];
-  let currentPage = 1;
-  let selectedCategory = "";
-  let categoryList = [];
+        const { error: reauthError } = await supabaseClient.auth.signInWithPassword({
+          email,
+          password: currentPw
+        });
 
-  // 로그인
-  async function login() {
-    const email = document.getElementById("email").value;
-    const password = document.getElementById("password").value;
-    document.getElementById("msg").innerText = "로그인 중...";
+        if (reauthError) {
+          alert("❌ 현재 비밀번호가 틀렸습니다.");
+          return;
+        }
 
-    const { error } = await supabaseClient.auth.signInWithPassword({
-      email, password
-    });
+        const { error: updateError } = await supabaseClient.auth.updateUser({
+          password: newPw
+        });
 
-    if (error) {
-      document.getElementById("msg").innerText = "❌ 로그인 실패";
-    } else {
-      document.getElementById("msg").innerText = "";
-      showSearch();
-    }
-  }
+        if (updateError) {
+          alert("❌ 비밀번호 변경 실패");
+        } else {
+          alert("✅ 비밀번호가 성공적으로 변경되었습니다.");
+          toggleUserMenu();
+        }
+      }
 
-  function toggleUserMenu() {
-    const menu = document.getElementById("userMenu");
-    menu.style.display = menu.style.display === "block" ? "none" : "block";
-  }
+      async function logout() {
+        await supabaseClient.auth.signOut();
+        location.reload();
+      }
 
-  async function changePassword() {
-    const currentPw = prompt("현재 비밀번호를 입력하세요");
-    if (!currentPw) return;
+      // Show Search logic updated
+      function showSearch() {
+        document.getElementById("loginBox").style.display = "none";
+        document.getElementById("mainApp").classList.remove("hidden");
 
-    const newPw = prompt("새 비밀번호를 입력하세요");
-    if (!newPw) return;
+        loadCategories();
+        loadRecentSearches(); // Populate Drive Widget
+        // Default to Home Screen
+        goHome();
+      }
 
-    const { data: sessionData } = await supabaseClient.auth.getSession();
-    const email = sessionData.session.user.email;
+      function goHome() {
+        document.getElementById("homeScreen").style.display = "flex";
+        document.getElementById("searchScreen").classList.remove("active");
 
-    const { error: reauthError } = await supabaseClient.auth.signInWithPassword({
-      email,
-      password: currentPw
-    });
+        // Clear Search inputs
+        document.getElementById("homeKeyword").value = "";
+        document.getElementById("headerKeyword").value = "";
 
-    if (reauthError) {
-      alert("❌ 현재 비밀번호가 틀렸습니다.");
-      return;
-    }
+        // Ensure recent searches are updated
+        loadRecentSearches();
+      }
 
-    const { error: updateError } = await supabaseClient.auth.updateUser({
-      password: newPw
-    });
+      function goSearchMode(keyword) {
+        document.getElementById("homeScreen").style.display = "none";
+        document.getElementById("searchScreen").classList.add("active");
 
-    if (updateError) {
-      alert("❌ 비밀번호 변경 실패");
-    } else {
-      alert("✅ 비밀번호가 성공적으로 변경되었습니다.");
-      toggleUserMenu();
-    }
-  }
+        const headerInput = document.getElementById("headerKeyword");
+        headerInput.value = keyword;
+      }
 
-  async function logout() {
-    await supabaseClient.auth.signOut();
-    location.reload();
-  }
+      // 이미 로그인 상태인지 체크
+      async function checkLogin() {
+        try {
+          const { data } = await supabaseClient.auth.getSession();
+          if (data.session) {
+            showSearch();
+          } else {
+            // No session, ensure only login is shown
+            document.getElementById("loginBox").style.display = "block";
+            document.getElementById("mainApp").classList.add("hidden");
+          }
+        } catch (e) {
+          console.error("checkLogin failed:", e);
+        }
+      }
 
-  // 로그인 후 화면 전환
-  function showSearch() {
-    const loginBox = document.getElementById("loginBox");
-    const searchBox = document.getElementById("searchBox");
-    const userIcon = document.getElementById("userIcon");
+      /**
+       * Common Data Fetcher with Session Check and Caching
+       */
+      async function fetchAllDataWithSession() {
+        const { data: sessionData } = await supabaseClient.auth.getSession();
+        if (!sessionData.session) {
+          return null;
+        }
 
-    loginBox.style.display = "none";
-    searchBox.classList.remove("hidden");
-    searchBox.style.display = "block";
-    userIcon.classList.remove("hidden");
+        if (allCachedData) return allCachedData;
 
-    loadCategories();
-  }
+        try {
+          const { data, error } = await supabaseClient.from("info").select("*");
+          if (error) throw error;
+          allCachedData = data || [];
+          return allCachedData;
+        } catch (e) {
+          console.error("데이터 로드 중 오류 발생:", e);
+          alert("데이터를 가져오는 중 오류가 발생했습니다.");
+          return null;
+        }
+      }
 
-  // 이미 로그인 상태인지 체크
-  async function checkLogin() {
-    const { data } = await supabaseClient.auth.getSession();
-    if (data.session) {
-      showSearch();
-    }
-  }
+      // 카테고리 로드
+      async function loadCategories() {
+        const data = await fetchAllDataWithSession();
+        if (!data) return;
 
-  // 카테고리 로드
-  async function loadCategories() {
-    const { data, error } = await supabaseClient
-      .from("info")
-      .select("키워드");
+        try {
+          const select = document.getElementById("categorySelect");
+          if (!select) return;
 
-    if (error) {
-      console.log("카테고리 로드 실패", error);
-      return;
-    }
+          select.innerHTML = '<option value="">전체 카테고리</option>';
+          const categories = [...new Set(data.map(d => d.키워드).filter(Boolean))].sort();
 
-    const select = document.getElementById("categorySelect");
-    select.innerHTML = `<option value="">전체</option>`;
+          categories.forEach(cat => {
+            const option = document.createElement("option");
+            option.value = cat;
+            option.innerText = cat;
+            select.appendChild(option);
+          });
+        } catch (e) {
+          console.error("loadCategories script error:", e);
+        }
+      }
 
-    const categories = [...new Set(data.map(d => d.키워드).filter(Boolean))];
+      function selectCategory(cat, btn) {
+        selectedCategory = cat;
 
-    categories.forEach(cat => {
-      const option = document.createElement("option");
-      option.value = cat;
-      option.innerText = cat;
-      select.appendChild(option);
-    });
-  }
+        document.querySelectorAll(".category-btn").forEach(b => {
+          b.classList.remove("active");
+        });
 
-  function selectCategory(cat, btn) {
-    selectedCategory = cat;
+        btn.classList.add("active");
+      }
 
-    document.querySelectorAll(".category-btn").forEach(b => {
-      b.classList.remove("active");
-    });
+      // Main Search Function
+      async function search(forceKeyword) {
+        // Determine input source
+        let inputVal = "";
+        const homeInput = document.getElementById("homeKeyword");
+        const headerInput = document.getElementById("headerKeyword");
 
-    btn.classList.add("active");
-  }
+        if (forceKeyword) {
+          inputVal = forceKeyword;
+        } else {
+          // Check visible input
+          if (document.getElementById("homeScreen").style.display !== "none") {
+            inputVal = homeInput.value.trim();
+          } else {
+            inputVal = headerInput.value.trim();
+          }
+        }
 
-  // 검색 (키워드2 AND 검색)
-  async function search() {
-    const keyword = document.getElementById("keyword").value.trim();
-    const category = document.getElementById("categorySelect").value;
+        if (!inputVal) return;
 
-    const { data, error } = await supabaseClient
-      .from("info")
-      .select("*")
-      .ilike("키워드", `%${category}%`);
+        // Switch UI to Search Mode
+        goSearchMode(inputVal);
 
-    if (error) {
-      alert("❌ 검색 오류");
-      return;
-    }
+        // Save Recent
+        saveRecentSearch(inputVal);
 
-    const keywords = keyword
-      .toLowerCase()
-      .split(/\s+/)
-      .filter(k => k.length > 0);
+        // Do Query - Ensure we have data
+        const data = await fetchAllDataWithSession();
+        if (!data) {
+          console.error("Search failed: No data returned from fetcher.");
+          return;
+        }
 
-    const filtered = data.filter(row => {
-      const target = (row.키워드2 || "").toLowerCase();
-      return keywords.every(word => target.includes(word));
-    });
+        const selectedCat = document.getElementById("categorySelect").value;
 
-    filtered.sort((a, b) => {
-      return (b.중요 === true) - (a.중요 === true);
-    });
+        const keywords = inputVal.toLowerCase().split(/\s+/).filter(k => k);
+        const filtered = data.filter(row => {
+          // 1. 카테고리 필터 (선택된 경우에만)
+          if (selectedCat && row.키워드 !== selectedCat) return false;
 
-    allData = filtered;
-    currentPage = 1;
-    renderPage();
-  }
+          // 2. 키워드 필터
+          const target = (row.키워드2 || "").toLowerCase();
+          return keywords.every(word => target.includes(word));
+        });
 
-  function renderPage() {
-    const pageSize = Number(document.getElementById("pageSize").value);
-    const start = (currentPage - 1) * pageSize;
-    const end = start + pageSize;
-    const pageData = allData.slice(start, end);
+        filtered.sort((a, b) => (b.중요 === true) - (a.중요 === true));
 
-    const resultBox = document.getElementById("result");
-    resultBox.innerHTML = "";
+        allData = filtered;
+        currentPage = 1;
+        focusedResultIndex = -1; // Reset focus on new search
+        renderPage();
 
-    if (pageData.length === 0) {
-      resultBox.innerHTML =
-        '<div style="text-align:center; color:#999; padding:40px 0;">검색된 데이터가 없습니다.</div>';
-      document.getElementById("pager").innerHTML = "";
-      return;
-    }
+        // Update count
+        document.getElementById("resultCount").innerText = `검색결과 약 ${filtered.length}개`;
+      }
 
-    pageData.forEach(row => {
-      const div = document.createElement("div");
-      div.className = "result-item";
+      function runSearchFilter() {
+        // 카테고리만 바꿨을때도 검색 재실행 (이미 검색된 상태라면)
+        if (document.getElementById("searchScreen").classList.contains("active")) {
+          search(document.getElementById("headerKeyword").value);
+        }
+      }
 
-      const cat = document.createElement("div");
-      cat.className = "category";
+      // ---- 최근 검색어 Logic ----
+      function loadRecentSearches() {
+        try {
+          const container = document.getElementById("homeRecentList");
+          if (!container) return; // Defensive
 
-      if (row.중요 === true) cat.innerHTML = '⭐ ' + (row.키워드 || "");
-      else cat.innerText = row.키워드 || "";
+          const json = localStorage.getItem("recentSearches");
+          const list = json ? JSON.parse(json) : [];
+          renderRecentHistory(list);
+        } catch (e) {
+          console.error("Failed to load recent searches:", e);
+        }
+      }
 
-      const kw2 = document.createElement("div");
-      kw2.style.fontSize = "16px";
-      kw2.style.fontWeight = "bold";
-      kw2.style.color = "#1f3c88";
-      kw2.style.marginBottom = "6px";
-      kw2.innerText = row.키워드2 || "";
+      function saveRecentSearch(kw) {
+        try {
+          let json = localStorage.getItem("recentSearches");
+          let list = json ? JSON.parse(json) : [];
 
-      const text = document.createElement("div");
-      let content = (row.내용 || "")
-        .replace(/\\n/g, "<br>")
-        .replace(/\n/g, "<br>")
-        .replace(
-          /(https?:\/\/[^\s<]+)/g,
-          '<a href="$1" target="_blank" style="color:#1f3c88; text-decoration:underline;">$1</a>'
-        );
-      text.innerHTML = content;
+          // 중복 제거
+          list = list.filter(item => item !== kw);
+          // 맨 앞에 추가
+          list.unshift(kw);
+          // 최대 10개
+          if (list.length > 10) list.pop();
 
-      const imgBox = document.createElement("div");
-      imgBox.className = "images";
+          localStorage.setItem("recentSearches", JSON.stringify(list));
+          renderRecentHistory(list);
+        } catch (e) {
+          console.error("Failed to save recent search:", e);
+        }
+      }
 
-      if (row.이미지들) {
-        const imgUrls = row.이미지들
-          .split(";")
-          .map(u => u.trim())
-          .filter(u => u);
+      function deleteRecent(e, kw) {
+        e.stopPropagation();
+        try {
+          let json = localStorage.getItem("recentSearches");
+          let list = json ? JSON.parse(json) : [];
+          list = list.filter(item => item !== kw);
+          localStorage.setItem("recentSearches", JSON.stringify(list));
+          renderRecentHistory(list);
+        } catch (e) {
+          console.error("Failed to delete recent search:", e);
+        }
+      }
 
-        imgUrls.forEach((url, i) => {
-          const img = document.createElement("img");
-          img.src = url;
-          img.onclick = () => openImageModal(imgUrls, i);   // 슬라이더용
-          imgBox.appendChild(img);
+      // Recent Search: Render into Drive Widget (Home)
+      // Recent Search: Render into Drive Widget (Home)
+      function renderRecentHistory(list) {
+        const container = document.getElementById("homeRecentList");
+        container.innerHTML = "";
+
+        if (list.length === 0) {
+          container.innerHTML = "<div style='padding:20px; text-align:center; color:#9aa0a6; font-size:13px;'>최근 기록이 없습니다.</div>";
+          return;
+        }
+
+        list.slice(0, 5).forEach((kw, index) => {
+          // Container for Row + Detail
+          const wrapper = document.createElement("div");
+          wrapper.style.display = "flex";
+          wrapper.style.flexDirection = "column";
+
+          // 1. Row (Drive Item Style)
+          const item = document.createElement("div");
+          item.className = "drive-item";
+          item.onclick = () => toggleRecentDetail(kw, wrapper);
+
+          const iconBox = document.createElement("div");
+          iconBox.className = "drive-icon-box";
+          iconBox.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:#9aa0a6;"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>`;
+
+          const info = document.createElement("div");
+          info.className = "drive-info";
+
+          const title = document.createElement("div");
+          title.className = "drive-title";
+          title.innerText = kw; // Keyword as filename
+
+          const sub = document.createElement("div");
+          sub.className = "drive-sub";
+          sub.innerText = "검색 결과 보기"; // Subtext
+
+          // Delete Button (Right aligned)
+          const delBtn = document.createElement("div");
+          delBtn.innerHTML = "&times;";
+          delBtn.style.padding = "0 10px";
+          delBtn.style.fontSize = "18px";
+          delBtn.style.color = "#9aa0a6";
+          delBtn.onclick = (e) => {
+            e.stopPropagation(); // Prevent toggle
+            deleteRecent(e, kw);
+          };
+
+          info.appendChild(title);
+          info.appendChild(sub);
+
+          item.appendChild(iconBox);
+          item.appendChild(info);
+          item.appendChild(delBtn);
+
+          // 2. Detail View (Hidden by CSS)
+          const detail = document.createElement("div");
+          detail.className = "recent-detail";
+
+          wrapper.appendChild(item);
+          wrapper.appendChild(detail);
+
+          container.appendChild(wrapper);
         });
       }
 
-      div.appendChild(cat);
-      div.appendChild(kw2);
-      div.appendChild(text);
-      div.appendChild(imgBox);
+      // Accordion Toggle Logic (No longer used for homeRecentList, but kept for potential future use or if other recent lists exist)
+      async function toggleRecentDetail(kw, wrapperElement) {
+        const detailDiv = wrapperElement.querySelector(".recent-detail");
+        const isActive = detailDiv.classList.contains("active");
 
-      resultBox.appendChild(div);
-    });
+        // Close all others
+        const allDetails = document.querySelectorAll(".recent-detail");
+        allDetails.forEach(el => {
+          if (el !== detailDiv) el.classList.remove("active");
+        });
 
-    renderPager();
-  }
+        // Toggle current
+        if (isActive) {
+          detailDiv.classList.remove("active");
+        } else {
+          detailDiv.classList.add("active");
+          // If empty, fetch data
+          if (detailDiv.innerHTML.trim() === "" || detailDiv.innerHTML.includes("로딩 중")) {
+            detailDiv.innerHTML = "<div style='color:#999; text-align:center; padding:10px;'>로딩 중...</div>";
+            await fetchAndRenderDetail(kw, detailDiv);
+          }
+        }
+      }
 
-  function renderPager() {
-    const pageSize = Number(document.getElementById("pageSize").value);
-    const totalPage = Math.ceil(allData.length / pageSize);
-    const pager = document.getElementById("pager");
-    pager.innerHTML = "";
+      // Fetch Data for Detail View
+      async function fetchAndRenderDetail(keyword, container) {
+        const keywords = keyword.toLowerCase().split(/\s+/).filter(k => k.length > 0);
+        const data = await fetchAllDataWithSession();
+        if (!data) return;
 
-    if (totalPage <= 1) return;
+        // Filter in JS (Flexible "AND" search)
+        const filtered = data.filter(row => {
+          const target = (row.키워드2 || "").toLowerCase();
+          return keywords.every(word => target.includes(word));
+        });
 
-    const maxVisible = 7;
-    let start = Math.max(1, currentPage - Math.floor(maxVisible / 2));
-    let end = start + maxVisible - 1;
+        // Sort priority
+        filtered.sort((a, b) => (b.중요 === true) - (a.중요 === true));
 
-    if (end > totalPage) {
-      end = totalPage;
-      start = Math.max(1, end - maxVisible + 1);
-    }
+        // Render
+        container.innerHTML = "";
+        if (filtered.length === 0) {
+          container.innerHTML = "<div style='padding:10px; color:#999;'>검색 결과가 없습니다.</div>";
+          return;
+        }
 
-    const prevBtn = document.createElement("button");
-    prevBtn.innerText = "◀";
-    prevBtn.disabled = currentPage === 1;
-    prevBtn.onclick = () => {
-      currentPage--;
-      renderPage();
-    };
-    pager.appendChild(prevBtn);
+        // Show max 5 items for quick view
+        filtered.slice(0, 5).forEach(row => {
+          const item = createResultItemElement(row, keywords);
+          container.appendChild(item);
+        });
 
-    for (let i = start; i <= end; i++) {
-      const btn = document.createElement("button");
-      btn.innerText = i;
-      if (i === currentPage) btn.classList.add("active");
-      btn.onclick = () => {
-        currentPage = i;
+        if (filtered.length > 5) {
+          const moreBtn = document.createElement("div");
+          moreBtn.style.textAlign = "center";
+          moreBtn.style.padding = "10px";
+          moreBtn.style.color = "#8ab4f8"; /* Updated to Bright Blue */
+          moreBtn.style.cursor = "pointer";
+          moreBtn.style.fontWeight = "bold";
+          moreBtn.innerText = `결과 ${filtered.length}개 전체 보기 >`;
+          moreBtn.onclick = () => search(keyword); // Go to full search mode
+          container.appendChild(moreBtn);
+        }
+      }
+
+      function toggleHighlight() {
+        useHighlight = document.getElementById("highlightToggle").checked;
+        localStorage.setItem("useHighlight", useHighlight);
+        renderPage(); // Re-render results
+      }
+
+      function applyHighlighting(text, keywords) {
+        if (!useHighlight || !keywords || keywords.length === 0) return text;
+        let highlighted = text;
+
+        const sortedKws = [...keywords].sort((a, b) => b.length - a.length);
+
+        sortedKws.forEach(kw => {
+          if (!kw.trim()) return;
+          const escapedKw = kw.replace(/[&<>"']/g, (m) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
+          const pattern = kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+          const escapedPattern = escapedKw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+          // Match tags/entities OR the keyword. Skip if it's a tag or entity.
+          const regex = new RegExp(`(<[^>]*>|&[a-z0-9#]+;)|(${escapedPattern}|${pattern})`, 'gi');
+
+          highlighted = highlighted.replace(regex, (match, tagOrEntity, word) => {
+            if (tagOrEntity) return tagOrEntity;
+            return `<span style="background:#ffeb3b; color:#000; border-radius:2px; padding:0 1px;">${word}</span>`;
+          });
+        });
+        return highlighted;
+      }
+
+      /**
+       * Unified Result Item Rendering Function
+       */
+      function createResultItemElement(row, keywords = null) {
+        if (!keywords) {
+          const inputVal = document.getElementById("headerKeyword").value || document.getElementById("homeKeyword").value;
+          keywords = inputVal ? inputVal.trim().split(/\s+/) : [];
+        }
+
+        const div = document.createElement("div");
+        div.className = "result-item";
+
+        const kw1 = (row.키워드 || "");
+        const kw2 = (row.키워드2 || "");
+        const combTitle = kw1 + (kw2 ? " / " + kw2 : "");
+
+        const titleDiv = document.createElement("div");
+        titleDiv.className = "category";
+        titleDiv.style.fontSize = "18px";
+        titleDiv.style.fontWeight = "bold";
+        titleDiv.style.color = "#8ab4f8";
+        titleDiv.style.marginBottom = "5px";
+
+        const highlightedTitle = applyHighlighting(combTitle, keywords);
+        titleDiv.innerHTML = (row.중요 === true ? '⭐ ' : '') + highlightedTitle;
+
+        // Content Container
+        const contentContainer = document.createElement("div");
+        contentContainer.className = "result-content-container";
+
+        const contentWrapper = document.createElement("div");
+        contentWrapper.className = "result-content-wrapper";
+
+        const text = document.createElement("div");
+        text.className = "result-content";
+
+        let content = (row.내용 || "");
+        // 1. Safe Escape
+        content = content.replace(/[&<>"']/g, (m) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
+        // 2. Formatting
+        content = content
+          .split(LINE_SEP_TOKEN).join('<br>')
+          .replace(/\\n/g, '<br>')
+          .replace(/\n/g, '<br>');
+        // 3. Linkify
+        content = content.replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" class="result-link">$1</a>');
+
+        text.innerHTML = applyHighlighting(content, keywords);
+
+        const fade = document.createElement("div");
+        fade.className = "content-fade";
+
+        contentWrapper.appendChild(text);
+
+        // 이미지 박스 (Moved inside contentWrapper)
+        const imgBox = document.createElement("div");
+        imgBox.className = "images";
+        if (row.이미지들) {
+          const imgUrls = row.이미지들.split(";").map(u => u.trim()).filter(u => u);
+          imgUrls.forEach((url, i) => {
+            const img = document.createElement("img");
+            img.src = url;
+            // Set smaller height if we are in an accordion (quick view)
+            if (div.style.padding === "10px 0") img.style.height = "80px";
+            img.onclick = (e) => {
+              e.stopPropagation();
+              openImageModal(imgUrls, i, -1);
+            };
+            imgBox.appendChild(img);
+          });
+        }
+        contentWrapper.appendChild(imgBox);
+        contentWrapper.appendChild(fade);
+
+        const moreBtn = document.createElement("button");
+        moreBtn.className = "toggle-more-btn";
+        moreBtn.innerHTML = '더보기 <small>▼</small>';
+        moreBtn.onclick = () => {
+          const isExpanded = contentWrapper.classList.toggle("expanded");
+          moreBtn.innerHTML = isExpanded ? '접기 <small>▲</small>' : '더보기 <small>▼</small>';
+        };
+
+        contentContainer.appendChild(contentWrapper);
+        contentContainer.appendChild(moreBtn);
+
+        div.appendChild(titleDiv);
+        div.appendChild(contentContainer);
+
+        // Post-render check to hide "More" if content (text+images) is short
+        setTimeout(() => {
+          // Check scrollHeight of contentWrapper which now includes images
+          if (contentWrapper.scrollHeight <= 190) {
+            moreBtn.style.display = "none";
+            fade.style.display = "none";
+            contentWrapper.style.maxHeight = "none";
+          } else {
+            moreBtn.style.display = "flex";
+          }
+        }, 100); // Small delay to allow images to start loading and contributing to height
+
+        return div;
+      }
+
+      // (Deleted renderCategoryShortcuts)
+
+      function switchSearchTab(mode) {
+        currentViewMode = mode;
+
+        document.getElementById("tabTotal").classList.toggle("active", mode === "total");
+        document.getElementById("tabImages").classList.toggle("active", mode === "images");
+
+        if (mode === "total") {
+          document.getElementById("result").style.display = "block";
+          document.getElementById("imageGrid").style.display = "none";
+          document.getElementById("pager").style.display = "flex";
+          renderPage();
+        } else {
+          document.getElementById("result").style.display = "none";
+          document.getElementById("imageGrid").style.display = "grid";
+          document.getElementById("pager").style.display = "none";
+          renderImageGrid();
+        }
+      }
+
+      function renderImageGrid() {
+        const grid = document.getElementById("imageGrid");
+        grid.innerHTML = "";
+
+        let foundAny = false;
+        allData.forEach((row, rowIndex) => {
+          if (!row.이미지들) return;
+
+          const imgUrls = row.이미지들.split(";").map(u => u.trim()).filter(u => u);
+          imgUrls.forEach(url => {
+            foundAny = true;
+            const item = document.createElement("div");
+            item.className = "image-grid-item";
+            item.onclick = () => openImageModal(imgUrls, 0, rowIndex);
+
+            const img = document.createElement("img");
+            img.src = url;
+            img.loading = "lazy";
+
+            const overlay = document.createElement("div");
+            overlay.className = "image-grid-overlay";
+            overlay.innerText = (row.키워드 || "") + " " + (row.키워드2 || "");
+
+            item.appendChild(img);
+            item.appendChild(overlay);
+            grid.appendChild(item);
+          });
+        });
+
+        if (!foundAny) {
+          grid.innerHTML = '<div style="grid-column: 1/-1; text-align:center; color:#999; padding:40px 0;">이미지 데이터가 없습니다.</div>';
+        }
+      }
+
+      function jumpToResultFromModal() {
+        if (currentResultIndexForModal >= 0) {
+          const idx = currentResultIndexForModal;
+          closeImageModal();
+          jumpToResult(idx);
+        }
+      }
+
+
+      function jumpToResult(index) {
+        // Switch to total view
+        focusedResultIndex = index;
+        switchSearchTab('total');
+
+        // Scroll to top of results
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+
+      function clearFocus() {
+        focusedResultIndex = -1;
         renderPage();
+      }
+
+      function renderPage() {
+        if (currentViewMode === "images") {
+          renderImageGrid();
+          return;
+        }
+
+        const resultBox = document.getElementById("result");
+        const pager = document.getElementById("pager");
+        resultBox.innerHTML = "";
+
+        let displayData = [];
+        if (focusedResultIndex >= 0 && allData[focusedResultIndex]) {
+          displayData = [allData[focusedResultIndex]];
+          pager.style.display = "none";
+
+          // Add "Show all" button at the top
+          const topBar = document.createElement("div");
+          topBar.style.display = "flex";
+          topBar.style.justifyContent = "space-between";
+          topBar.style.alignItems = "center";
+          topBar.style.padding = "10px 0";
+          topBar.style.borderBottom = "1px solid #3c4043";
+          topBar.style.marginBottom = "10px";
+          topBar.innerHTML = `
+            <span style="color:#8ab4f8; font-weight:bold;">선택 항목 보기</span>
+            <button class="btn-primary" style="width:auto; padding:6px 12px; background:#5f6368; font-size:13px;" onclick="clearFocus()">전체 결과 보기</button>
+          `;
+          resultBox.appendChild(topBar);
+        } else {
+          const pageSize = Number(document.getElementById("pageSize").value);
+          const start = (currentPage - 1) * pageSize;
+          const end = start + pageSize;
+          displayData = allData.slice(start, end);
+          pager.style.display = "flex";
+        }
+
+        if (displayData.length === 0) {
+          resultBox.innerHTML =
+            '<div style="text-align:center; color:#999; padding:40px 0;">검색된 데이터가 없습니다.</div>';
+          pager.innerHTML = "";
+          return;
+        }
+
+        displayData.forEach(row => {
+          const item = createResultItemElement(row);
+          resultBox.appendChild(item);
+        });
+
+        renderPager();
+      }
+
+      function renderPager() {
+        const pageSize = Number(document.getElementById("pageSize").value);
+        const totalPage = Math.ceil(allData.length / pageSize);
+        const pager = document.getElementById("pager");
+        pager.innerHTML = "";
+
+        if (totalPage <= 1) return;
+
+        const maxVisible = 7;
+        let start = Math.max(1, currentPage - Math.floor(maxVisible / 2));
+        let end = start + maxVisible - 1;
+
+        if (end > totalPage) {
+          end = totalPage;
+          start = Math.max(1, end - maxVisible + 1);
+        }
+
+        const prevBtn = document.createElement("button");
+        prevBtn.innerText = "◀";
+        prevBtn.disabled = currentPage === 1;
+        prevBtn.onclick = () => {
+          currentPage--;
+          renderPage();
+        };
+        pager.appendChild(prevBtn);
+
+        for (let i = start; i <= end; i++) {
+          const btn = document.createElement("button");
+          btn.innerText = i;
+          if (i === currentPage) btn.classList.add("active");
+          btn.onclick = () => {
+            currentPage = i;
+            renderPage();
+          };
+          pager.appendChild(btn);
+        }
+
+        const nextBtn = document.createElement("button");
+        nextBtn.innerText = "▶";
+        nextBtn.disabled = currentPage === totalPage;
+        nextBtn.onclick = () => {
+          currentPage++;
+          renderPage();
+        };
+        pager.appendChild(nextBtn);
+      }
+
+      document.getElementById("pageSize").addEventListener("change", () => {
+        currentPage = 1;
+        renderPage();
+      });
+
+      window.addEventListener("click", (e) => {
+        const menu = document.getElementById("userMenu");
+        const icon = document.getElementById("userIcon");
+        if (!icon.contains(e.target) && !menu.contains(e.target)) {
+          menu.style.display = "none";
+        }
+      });
+
+      document.getElementById("homeKeyword").addEventListener("keydown", function (e) {
+        if (e.key === "Enter") {
+          search();
+        }
+      });
+
+      document.getElementById("headerKeyword").addEventListener("keydown", function (e) {
+        if (e.key === "Enter") {
+          search();
+        }
+      });
+
+      document.getElementById("password").addEventListener("keydown", function (e) {
+        if (e.key === "Enter") {
+          login();
+        }
+      });
+
+      document.getElementById("categorySelect").addEventListener("keydown", function (e) {
+        if (e.key === "Enter") {
+          search();
+        }
+      });
+
+      function togglePCMode() {
+        document.body.classList.toggle("pc-mode");
+        const isPC = document.body.classList.contains("pc-mode");
+        localStorage.setItem("pcMode", isPC ? "true" : "false");
+
+        updatePCModeButton();
+      }
+
+      function updatePCModeButton() {
+        const btn = document.querySelector(".pc-toggle-btn");
+        if (!btn) return;
+        const isPC = document.body.classList.contains("pc-mode");
+        btn.innerText = isPC ? "모바일 모드" : "PC 모드";
+      }
+
+      function checkPCMode() {
+        const savedMode = localStorage.getItem("pcMode");
+        if (savedMode === "true") {
+          document.body.classList.add("pc-mode");
+        }
+        updatePCModeButton();
+      }
+
+      // 초기 PC 모드 체크
+      checkPCMode();
+
+      /* ========= 이미지 확대 / 드래그 / 휠 확대 + 슬라이더 ========= */
+
+      let scale = 1;
+      let posX = 0, posY = 0;
+      let dragStartX = 0, dragStartY = 0;
+      let isDragging = false;
+
+      // 슬라이더 데이터
+      let galleryImages = [];
+      let currentIndex = 0;
+
+      function applyTransform() {
+        const img = document.getElementById("imgModalContent");
+        if (!img) return;
+        img.style.transform = `translate(${posX}px, ${posY}px) scale(${scale})`;
+      }
+
+      let currentResultIndexForModal = -1;
+
+      function loadModalImage() {
+        const img = document.getElementById("imgModalContent");
+        if (!img || galleryImages.length === 0) return;
+        img.src = galleryImages[currentIndex];
+
+        // Show/Hide Go to Result button
+        const btn = document.getElementById("btnGoToResult");
+        if (btn) {
+          btn.style.display = (currentResultIndexForModal >= 0) ? "block" : "none";
+        }
+
+        // 이미지 바꿀 때마다 위치/배율 리셋
+        scale = 1;
+        posX = 0;
+        posY = 0;
+        applyTransform();
+      }
+
+      // 이미지 모달 열기 (여러 이미지 + 시작 인덱스 + 결과 데이터 인덱스)
+      function openImageModal(images, index, resultIndex = -1) {
+        const modal = document.getElementById("imgModal");
+        const viewer = document.getElementById("imgViewer");
+
+        if (!modal || !viewer) return;
+
+        galleryImages = images || [];
+        currentIndex = index || 0;
+        currentResultIndexForModal = resultIndex;
+
+        loadModalImage();
+
+        modal.classList.remove("hidden");
+        document.body.classList.add("no-scroll");
+
+        // 휠 줌 핸들러
+        const onWheelHandler = (e) => {
+          e.preventDefault();
+          const delta = e.deltaY > 0 ? -0.15 : 0.15;
+          scale = Math.min(Math.max(scale + delta, 1), 5);
+          applyTransform();
+        };
+
+        // 마우스 드래그 핸들러
+        const onMouseDownHandler = (e) => {
+          isDragging = true;
+          dragStartX = e.clientX - posX;
+          dragStartY = e.clientY - posY;
+          viewer.style.cursor = "grabbing";
+        };
+
+        const onMouseMoveHandler = (e) => {
+          if (!isDragging) return;
+          posX = e.clientX - dragStartX;
+          posY = e.clientY - dragStartY;
+          applyTransform();
+        };
+
+        const onMouseUpHandler = () => {
+          isDragging = false;
+          viewer.style.cursor = "grab";
+        };
+
+        // 이벤트 등록
+        viewer.addEventListener("wheel", onWheelHandler, { passive: false });
+        viewer.addEventListener("mousedown", onMouseDownHandler);
+        document.addEventListener("mousemove", onMouseMoveHandler);
+        document.addEventListener("mouseup", onMouseUpHandler);
+
+        // 나중에 이벤트를 제거하기 위해 핸들러들을 요소에 저장해둡니다 (편의상)
+        viewer._wheelHandler = onWheelHandler;
+        viewer._downHandler = onMouseDownHandler;
+        document._moveHandler = onMouseMoveHandler;
+        document._upHandler = onMouseUpHandler;
+      }
+
+      function closeImageModal() {
+        const modal = document.getElementById("imgModal");
+        const viewer = document.getElementById("imgViewer");
+
+        if (!modal) return;
+
+        modal.classList.add("hidden");
+        document.body.classList.remove("no-scroll");
+
+        // 이벤트 리스너 정리
+        if (viewer && viewer._wheelHandler) {
+          viewer.removeEventListener("wheel", viewer._wheelHandler);
+          viewer.removeEventListener("mousedown", viewer._downHandler);
+          document.removeEventListener("mousemove", document._moveHandler);
+          document.removeEventListener("mouseup", document._upHandler);
+
+          // 참조 제거
+          viewer._wheelHandler = null;
+          viewer._downHandler = null;
+          document._moveHandler = null;
+          document._upHandler = null;
+        }
+      }
+
+      // 이전/다음 이미지
+      function prevImage() {
+        if (!galleryImages.length) return;
+        currentIndex = (currentIndex - 1 + galleryImages.length) % galleryImages.length;
+        loadModalImage();
+      }
+
+      function nextImage() {
+        if (!galleryImages.length) return;
+        currentIndex = (currentIndex + 1) % galleryImages.length;
+        loadModalImage();
+      }
+
+      // Start-up Initial Load
+      window.onload = () => {
+        document.getElementById("highlightToggle").checked = useHighlight;
+        checkLogin(); // Only run checkLogin, it will trigger showSearch -> load other data if OK.
       };
-      pager.appendChild(btn);
-    }
+      // 이미지 모달 바깥 클릭 시 닫기 (이미지/버튼 클릭은 유지)
+      document.addEventListener("DOMContentLoaded", () => {
+        const modal = document.getElementById("imgModal");
+        const viewer = document.getElementById("imgViewer");
 
-    const nextBtn = document.createElement("button");
-    nextBtn.innerText = "▶";
-    nextBtn.disabled = currentPage === totalPage;
-    nextBtn.onclick = () => {
-      currentPage++;
-      renderPage();
-    };
-    pager.appendChild(nextBtn);
-  }
+        if (!modal || !viewer) return;
 
-  document.getElementById("pageSize").addEventListener("change", () => {
-    currentPage = 1;
-    renderPage();
-  });
+        // 모달 내부(viewer) 클릭은 닫기 막기
+        viewer.addEventListener("click", (e) => {
+          e.stopPropagation();
+        });
 
-  window.addEventListener("click", (e) => {
-    const menu = document.getElementById("userMenu");
-    const icon = document.getElementById("userIcon");
-    if (!icon.contains(e.target) && !menu.contains(e.target)) {
-      menu.style.display = "none";
-    }
-  });
+        // 바깥(어두운 영역) 클릭 시 닫기
+        modal.addEventListener("click", () => {
+          closeImageModal();
+        });
+      });
+    </script>
 
-  document.getElementById("keyword").addEventListener("keydown", function(e) {
-    if (e.key === "Enter") {
-      search();
-    }
-  });
+    <!-- 이미지 확대 모달 -->
+    <div id="imgModal" class="img-modal hidden">
+      <span class="img-close" onclick="closeImageModal()">×</span>
+      <div class="img-viewer" id="imgViewer">
+        <button type="button" class="img-prev" onclick="prevImage()">‹</button>
+        <img id="imgModalContent" />
+        <button type="button" class="img-next" onclick="nextImage()">›</button>
+      </div>
+      <div id="modalControls"
+        style="position:absolute; bottom:20px; left:50%; transform:translateX(-50%); display:flex; gap:10px; z-index:3001;">
+        <button class="btn-primary" id="btnGoToResult" style="width:130px; display:none;"
+          onclick="jumpToResultFromModal()">데이터 이동</button>
+        <button class="btn-primary" onclick="closeImageModal()"
+          style="width:130px; background:#5f6368; color:white;">닫기</button>
+      </div>
+    </div>
 
-  document.getElementById("categorySelect").addEventListener("keydown", function(e) {
-    if (e.key === "Enter") {
-      search();
-    }
-  });
-
-  function togglePCMode() {
-    document.body.classList.toggle("pc-mode");
-    const btn = document.querySelector(".pc-toggle-btn");
-    if (!btn) return;
-    btn.innerText = document.body.classList.contains("pc-mode") ? "모바일 모드" : "PC 모드";
-  }
-
-  /* ========= 이미지 확대 / 드래그 / 휠 확대 + 슬라이더 ========= */
-
-  let scale = 1;
-  let posX = 0, posY = 0;
-  let dragStartX = 0, dragStartY = 0;
-  let isDragging = false;
-
-  // 슬라이더 데이터
-  let galleryImages = [];
-  let currentIndex = 0;
-
-  function applyTransform() {
-    const img = document.getElementById("imgModalContent");
-    if (!img) return;
-    img.style.transform = `translate(${posX}px, ${posY}px) scale(${scale})`;
-  }
-
-  function loadModalImage() {
-    const img = document.getElementById("imgModalContent");
-    if (!img || galleryImages.length === 0) return;
-    img.src = galleryImages[currentIndex];
-    // 이미지 바꿀 때마다 위치/배율 리셋
-    scale = 1;
-    posX = 0;
-    posY = 0;
-    applyTransform();
-  }
-
-  // 이미지 모달 열기 (여러 이미지 + 시작 인덱스)
-  function openImageModal(images, index) {
-    const modal = document.getElementById("imgModal");
-    const viewer = document.getElementById("imgViewer");
-
-    if (!modal || !viewer) return;
-
-    galleryImages = images || [];
-    currentIndex = index || 0;
-
-    loadModalImage();
-
-    modal.classList.remove("hidden");
-    document.body.classList.add("no-scroll");
-
-    // 휠 줌
-    viewer.onwheel = (e) => {
-      e.preventDefault();
-      const delta = e.deltaY > 0 ? -0.15 : 0.15;
-      scale = Math.min(Math.max(scale + delta, 1), 5);
-      applyTransform();
-    };
-
-    // 마우스 드래그
-    viewer.onmousedown = (e) => {
-      isDragging = true;
-      dragStartX = e.clientX - posX;
-      dragStartY = e.clientY - posY;
-      viewer.style.cursor = "grabbing";
-    };
-
-    document.onmousemove = (e) => {
-      if (!isDragging) return;
-      posX = e.clientX - dragStartX;
-      posY = e.clientY - dragStartY;
-      applyTransform();
-    };
-
-    document.onmouseup = () => {
-      isDragging = false;
-      viewer.style.cursor = "grab";
-    };
-  }
-
-  function closeImageModal() {
-    const modal = document.getElementById("imgModal");
-    if (!modal) return;
-    modal.classList.add("hidden");
-    document.body.classList.remove("no-scroll");
-  }
-
-  // 이전/다음 이미지
-  function prevImage() {
-    if (!galleryImages.length) return;
-    currentIndex = (currentIndex - 1 + galleryImages.length) % galleryImages.length;
-    loadModalImage();
-  }
-
-  function nextImage() {
-    if (!galleryImages.length) return;
-    currentIndex = (currentIndex + 1) % galleryImages.length;
-    loadModalImage();
-  }
-
-  // 초기 로그인 체크
-  checkLogin();
-
-  // 이미지 모달 바깥 클릭 시 닫기 (이미지/버튼 클릭은 유지)
-  document.addEventListener("DOMContentLoaded", () => {
-    const modal = document.getElementById("imgModal");
-    const viewer = document.getElementById("imgViewer");
-
-    if (!modal || !viewer) return;
-
-    // 모달 내부(viewer) 클릭은 닫기 막기
-    viewer.addEventListener("click", (e) => {
-      e.stopPropagation();
-    });
-
-    // 바깥(어두운 영역) 클릭 시 닫기
-    modal.addEventListener("click", () => {
-      closeImageModal();
-    });
-  });
-</script>
-
-<!-- 이미지 확대 모달 -->
-<div id="imgModal" class="img-modal hidden">
-  <span class="img-close" onclick="closeImageModal()">×</span>
-
-  <div class="img-viewer" id="imgViewer">
-    <button type="button" class="img-prev" onclick="prevImage()">‹</button>
-    <img id="imgModalContent" />
-    <button type="button" class="img-next" onclick="nextImage()">›</button>
-  </div>
-</div>
-
-</div>
+  </div> <!-- End of .app -->
 </body>
+
 </html>
