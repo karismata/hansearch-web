@@ -4,11 +4,16 @@ import type { InfoItem, SupabaseConfig } from '../types';
 
 const CONFIG_STORAGE_KEY = 'hansearch_supabase_config';
 
+const DEFAULT_SUPABASE_URL = 'https://trtpgahsnuddenmxuazq.supabase.co';
+const DEFAULT_SUPABASE_ANON_KEY = 'sb_publishable_N_NBrRMNfUDwfCodR-nZ6g_KCFEZiw1';
+const DEFAULT_TABLE_NAME = 'info';
+const DEFAULT_STORAGE_BUCKET = 'images';
+
 export function getDefaultConfig(): SupabaseConfig {
-  const envUrl = import.meta.env.VITE_SUPABASE_URL || '';
-  const envKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
-  const envTable = import.meta.env.VITE_SUPABASE_TABLE || 'info';
-  const envBucket = import.meta.env.VITE_SUPABASE_BUCKET || 'images';
+  const envUrl = import.meta.env.VITE_SUPABASE_URL || DEFAULT_SUPABASE_URL;
+  const envKey = import.meta.env.VITE_SUPABASE_ANON_KEY || DEFAULT_SUPABASE_ANON_KEY;
+  const envTable = import.meta.env.VITE_SUPABASE_TABLE || DEFAULT_TABLE_NAME;
+  const envBucket = import.meta.env.VITE_SUPABASE_BUCKET || DEFAULT_STORAGE_BUCKET;
 
   try {
     const saved = localStorage.getItem(CONFIG_STORAGE_KEY);
@@ -32,6 +37,7 @@ export function getDefaultConfig(): SupabaseConfig {
     storageBucket: envBucket,
   };
 }
+
 
 export function saveConfig(config: SupabaseConfig) {
   try {
