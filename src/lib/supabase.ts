@@ -10,35 +10,45 @@ export const DEFAULT_TABLE_NAME = 'info';
 export const DEFAULT_STORAGE_BUCKET = 'hansearch-images';
 
 export function getDefaultConfig(): SupabaseConfig {
-  const envUrl = import.meta.env.VITE_SUPABASE_URL || DEFAULT_SUPABASE_URL;
-  const envKey = import.meta.env.VITE_SUPABASE_ANON_KEY || DEFAULT_SUPABASE_ANON_KEY;
-  const envTable = import.meta.env.VITE_SUPABASE_TABLE || DEFAULT_TABLE_NAME;
-  const envBucket = import.meta.env.VITE_SUPABASE_BUCKET || DEFAULT_STORAGE_BUCKET;
+  const envUrl = DEFAULT_SUPABASE_URL;
+  const envKey = DEFAULT_SUPABASE_ANON_KEY;
+  const envTable = DEFAULT_TABLE_NAME;
+  const envBucket = DEFAULT_STORAGE_BUCKET;
 
   try {
     const saved = localStorage.getItem(CONFIG_STORAGE_KEY);
     if (saved) {
       const parsed = JSON.parse(saved);
-      const url = parsed.url && parsed.url.trim() ? parsed.url.trim() : envUrl;
-      const anonKey = parsed.anonKey && parsed.anonKey.trim() ? parsed.anonKey.trim() : envKey;
-      return {
-        url,
-        anonKey,
-        tableName: parsed.tableName || envTable,
-        storageBucket: parsed.storageBucket || envBucket,
-      };
+      if (parsed && parsed.url && parsed.url.trim() && parsed.anonKey && parsed.anonKey.trim()) {
+        return {
+          url: parsed.url.trim(),
+          anonKey: parsed.anonKey.trim(),
+          tableName: parsed.tableName || envTable,
+          storageBucket: parsed.storageBucket || envBucket,
+        };
+      }
     }
   } catch (e) {
     console.error('Failed to parse saved config', e);
   }
 
-  return {
+  // Always force write the valid default credentials to localStorage
+  const validDefault: SupabaseConfig = {
     url: envUrl,
     anonKey: envKey,
     tableName: envTable,
     storageBucket: envBucket,
   };
+
+  try {
+    localStorage.setItem(CONFIG_STORAGE_KEY, JSON.stringify(validDefault));
+  } catch {
+    // ignore
+  }
+
+  return validDefault;
 }
+
 
 
 
