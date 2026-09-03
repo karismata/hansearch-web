@@ -38,10 +38,15 @@ import { AlertTriangle, Plus, SearchX, Loader2 } from 'lucide-react';
 
 export function App() {
   // Config & Connection State
-  const [config, setConfig] = useState<SupabaseConfig>(getDefaultConfig());
-  const [isConnected, setIsConnected] = useState<boolean>(false);
+  const [config, setConfig] = useState<SupabaseConfig>(() => {
+    const def = getDefaultConfig();
+    saveConfig(def);
+    return def;
+  });
+  const [isConnected, setIsConnected] = useState<boolean>(true);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+
 
   // Data State
   const [items, setItems] = useState<InfoItem[]>([]);

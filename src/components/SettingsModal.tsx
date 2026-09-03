@@ -1,8 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, Settings, Database, Key, HardDrive, CheckCircle2, AlertCircle, Loader2, Info } from 'lucide-react';
 import type { SupabaseConfig } from '../types';
-
-import { testConnection } from '../lib/supabase';
+import { testConnection, DEFAULT_SUPABASE_URL, DEFAULT_SUPABASE_ANON_KEY, DEFAULT_TABLE_NAME, DEFAULT_STORAGE_BUCKET } from '../lib/supabase';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -17,9 +16,24 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   config,
   onSaveConfig,
 }) => {
-  const [formData, setFormData] = useState<SupabaseConfig>(config);
+  const [formData, setFormData] = useState<SupabaseConfig>(() => ({
+    url: config.url || DEFAULT_SUPABASE_URL,
+    anonKey: config.anonKey || DEFAULT_SUPABASE_ANON_KEY,
+    tableName: config.tableName || DEFAULT_TABLE_NAME,
+    storageBucket: config.storageBucket || DEFAULT_STORAGE_BUCKET,
+  }));
   const [isTesting, setIsTesting] = useState(false);
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
+
+  useEffect(() => {
+    setFormData({
+      url: config.url || DEFAULT_SUPABASE_URL,
+      anonKey: config.anonKey || DEFAULT_SUPABASE_ANON_KEY,
+      tableName: config.tableName || DEFAULT_TABLE_NAME,
+      storageBucket: config.storageBucket || DEFAULT_STORAGE_BUCKET,
+    });
+  }, [config, isOpen]);
+
 
   if (!isOpen) return null;
 
