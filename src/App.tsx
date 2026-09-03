@@ -74,14 +74,6 @@ export function App() {
     setIsLoading(true);
     setLoadError(null);
 
-    if (!targetConfig.url || !targetConfig.anonKey) {
-      setIsConnected(false);
-      setIsLoading(false);
-      setLoadError('Supabase 연결 정보(URL, Anon Key)를 설정해주세요.');
-      setIsSettingsModalOpen(true); // Open settings modal automatically if not configured
-      return;
-    }
-
     try {
       const data = await fetchAllItems(targetConfig);
       setItems(data);
@@ -168,11 +160,12 @@ export function App() {
           }
         }
 
-
         // Favorites Filter
-        if (showOnlyFavorites && !favorites.includes(item.id!)) {
+        const isFav = favorites.includes(item.id!) || !!item.중요;
+        if (showOnlyFavorites && !isFav) {
           return false;
         }
+
 
         // Keyword Search (키워드2 and 내용)
         if (query) {

@@ -4,10 +4,10 @@ import type { InfoItem, SupabaseConfig } from '../types';
 
 const CONFIG_STORAGE_KEY = 'hansearch_supabase_config';
 
-const DEFAULT_SUPABASE_URL = 'https://trtpgahsnuddenmxuazq.supabase.co';
-const DEFAULT_SUPABASE_ANON_KEY = 'sb_publishable_N_NBrRMNfUDwfCodR-nZ6g_KCFEZiw1';
-const DEFAULT_TABLE_NAME = 'info';
-const DEFAULT_STORAGE_BUCKET = 'images';
+export const DEFAULT_SUPABASE_URL = 'https://trtpgahsnuddenmxuazq.supabase.co';
+export const DEFAULT_SUPABASE_ANON_KEY = 'sb_publishable_N_NBrRMNfUDwfCodR-nZ6g_KCFEZiw1';
+export const DEFAULT_TABLE_NAME = 'info';
+export const DEFAULT_STORAGE_BUCKET = 'hansearch-images';
 
 export function getDefaultConfig(): SupabaseConfig {
   const envUrl = import.meta.env.VITE_SUPABASE_URL || DEFAULT_SUPABASE_URL;
@@ -19,9 +19,11 @@ export function getDefaultConfig(): SupabaseConfig {
     const saved = localStorage.getItem(CONFIG_STORAGE_KEY);
     if (saved) {
       const parsed = JSON.parse(saved);
+      const url = parsed.url && parsed.url.trim() ? parsed.url.trim() : envUrl;
+      const anonKey = parsed.anonKey && parsed.anonKey.trim() ? parsed.anonKey.trim() : envKey;
       return {
-        url: parsed.url || envUrl,
-        anonKey: parsed.anonKey || envKey,
+        url,
+        anonKey,
         tableName: parsed.tableName || envTable,
         storageBucket: parsed.storageBucket || envBucket,
       };
@@ -37,6 +39,7 @@ export function getDefaultConfig(): SupabaseConfig {
     storageBucket: envBucket,
   };
 }
+
 
 
 export function saveConfig(config: SupabaseConfig) {
