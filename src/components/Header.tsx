@@ -2,9 +2,6 @@ import React from 'react';
 import { 
   Settings, 
   HelpCircle, 
-  FileSpreadsheet, 
-  Download, 
-  Trash2, 
   PlusCircle, 
   RefreshCw,
   Layers
@@ -17,9 +14,6 @@ interface HeaderProps {
   isLoading: boolean;
   onRefresh: () => void;
   onOpenAddModal: () => void;
-  onOpenExcelModal: () => void;
-  onExportExcel: () => void;
-  onOpenBulkDeleteModal: () => void;
   onOpenSettingsModal: () => void;
   onOpenHelpModal: () => void;
 }
@@ -31,9 +25,6 @@ export const Header: React.FC<HeaderProps> = ({
   isLoading,
   onRefresh,
   onOpenAddModal,
-  onOpenExcelModal,
-  onExportExcel,
-  onOpenBulkDeleteModal,
   onOpenSettingsModal,
   onOpenHelpModal,
 }) => {
@@ -81,7 +72,7 @@ export const Header: React.FC<HeaderProps> = ({
           <button
             onClick={onRefresh}
             disabled={isLoading}
-            className="p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors border border-slate-200"
+            className="p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors border border-slate-200 cursor-pointer"
             title="새로고침"
           >
             <RefreshCw size={17} className={isLoading ? 'animate-spin text-blue-600' : ''} />
@@ -90,7 +81,7 @@ export const Header: React.FC<HeaderProps> = ({
           {/* Help Button */}
           <button
             onClick={onOpenHelpModal}
-            className="px-3 py-2 text-xs font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors border border-slate-200 flex items-center gap-1.5"
+            className="px-3 py-2 text-xs font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors border border-slate-200 flex items-center gap-1.5 cursor-pointer"
             title="도움말 및 단축키"
           >
             <HelpCircle size={15} />
@@ -100,7 +91,7 @@ export const Header: React.FC<HeaderProps> = ({
           {/* Settings Button */}
           <button
             onClick={onOpenSettingsModal}
-            className="px-3 py-2 text-xs font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors border border-slate-200 flex items-center gap-1.5"
+            className="px-3 py-2 text-xs font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors border border-slate-200 flex items-center gap-1.5 cursor-pointer"
             title="Supabase DB 및 버킷 설정"
           >
             <Settings size={15} />
@@ -109,40 +100,10 @@ export const Header: React.FC<HeaderProps> = ({
 
           <div className="w-[1px] h-6 bg-slate-200 mx-0.5 hidden sm:block" />
 
-          {/* Excel Export */}
-          <button
-            onClick={onExportExcel}
-            className="px-3 py-2 text-xs font-medium text-slate-700 bg-white hover:bg-slate-50 rounded-lg transition-colors border border-slate-300 flex items-center gap-1.5 shadow-xs"
-            title="현재 검색된 목록을 엑셀로 다운로드"
-          >
-            <Download size={15} className="text-slate-500" />
-            <span className="hidden sm:inline">엑셀 다운로드</span>
-          </button>
-
-          {/* Excel Upload */}
-          <button
-            onClick={onOpenExcelModal}
-            className="px-3 py-2 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors border border-slate-300 flex items-center gap-1.5 shadow-xs"
-            title="엑셀 파일로 대량 업로드"
-          >
-            <FileSpreadsheet size={15} className="text-emerald-600" />
-            <span>엑셀 업로드</span>
-          </button>
-
-          {/* Bulk Delete */}
-          <button
-            onClick={onOpenBulkDeleteModal}
-            className="px-3 py-2 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-rose-50 hover:text-rose-700 hover:border-rose-300 rounded-lg transition-colors border border-slate-300 flex items-center gap-1.5 shadow-xs"
-            title="info 데이터 대량 삭제"
-          >
-            <Trash2 size={15} />
-            <span className="hidden md:inline">info 대량 삭제</span>
-          </button>
-
           {/* Add Data (Primary Green Button) */}
           <button
             onClick={onOpenAddModal}
-            className="px-4 py-2 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 rounded-lg transition-all flex items-center gap-1.5 shadow-sm hover:shadow"
+            className="px-4 py-2 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 rounded-lg transition-all flex items-center gap-1.5 shadow-sm hover:shadow cursor-pointer"
             title="새로운 데이터 추가 (Ctrl+N)"
           >
             <PlusCircle size={16} />
@@ -153,3 +114,4 @@ export const Header: React.FC<HeaderProps> = ({
     </header>
   );
 };
+

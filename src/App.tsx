@@ -281,12 +281,10 @@ export function App() {
           setEditingItem(null);
           setIsDataModalOpen(true);
         }}
-        onOpenExcelModal={() => setIsExcelModalOpen(true)}
-        onExportExcel={handleExportExcel}
-        onOpenBulkDeleteModal={() => setIsBulkDeleteModalOpen(true)}
         onOpenSettingsModal={() => setIsSettingsModalOpen(true)}
         onOpenHelpModal={() => setIsHelpModalOpen(true)}
       />
+
 
       {/* Main Container */}
       <main className="max-w-7xl w-full mx-auto px-4 sm:px-6 py-5 flex-1 flex flex-col space-y-4">
