@@ -11,12 +11,13 @@ export default defineConfig({
   build: {
     rollupOptions: {
       output: {
-        entryFileNames: `assets/hansearch-[name]-[hash].js`,
-        chunkFileNames: `assets/hansearch-[name]-[hash].js`,
-        assetFileNames: `assets/hansearch-[name]-[hash].[ext]`,
+        entryFileNames: `assets/app-v2-[name]-[hash].js`,
+        chunkFileNames: `assets/app-v2-[name]-[hash].js`,
+        assetFileNames: `assets/app-v2-[name]-[hash].[ext]`,
       },
     },
   },
 })
+
 
 
