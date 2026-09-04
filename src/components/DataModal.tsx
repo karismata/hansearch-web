@@ -4,6 +4,8 @@ import type { InfoItem } from '../types';
 
 import { uploadImageToStorage } from '../lib/supabase';
 import { parseImageUrls } from '../utils/helpers';
+import { compressImage } from '../utils/imageCompressor';
+
 
 interface DataModalProps {
   isOpen: boolean;
@@ -89,11 +91,18 @@ export const DataModal: React.FC<DataModalProps> = ({
     setIsUploading(true);
     setErrorMsg('');
     try {
-      const uploadedUrl = await uploadImageToStorage(file);
+      // Smart client-side compression: scales large photos to 1600px and reduces size by 80~90%
+      const processedFile = await compressImage(file, {
+        maxWidth: 1600,
+        maxHeight: 1600,
+        quality: 0.85,
+      });
+
+      const uploadedUrl = await uploadImageToStorage(processedFile);
       setImageUrls((prev) => [...prev, uploadedUrl]);
     } catch (err: any) {
       console.warn('Storage upload error, converting to base64 fallback:', err);
-      // Fallback: Read as base64 data URL if storage upload failed (e.g. no bucket or permission)
+      // Fallback: Read as base64 data URL if storage upload failed
       const reader = new FileReader();
       reader.onload = (event) => {
         const base64 = event.target?.result as string;
@@ -107,6 +116,7 @@ export const DataModal: React.FC<DataModalProps> = ({
       setIsUploading(false);
     }
   };
+
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
