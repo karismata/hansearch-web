@@ -358,8 +358,9 @@ export function App() {
               <p className="text-xs text-slate-500 max-w-sm mb-4">
                 {activeSearch
                   ? '다른 키워드로 검색하거나 카테고리 필터를 변경해 보세요.'
-                  : '상단의 [데이터 추가] 또는 [엑셀 업로드] 버튼을 눌러 새 가이드를 등록해 보세요.'}
+                  : '상단의 [데이터 추가] 버튼을 눌러 새 가이드를 등록해 보세요.'}
               </p>
+
               <div className="flex items-center gap-2">
                 {activeSearch ? (
                   <button
