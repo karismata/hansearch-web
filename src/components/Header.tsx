@@ -40,8 +40,9 @@ export const Header: React.FC<HeaderProps> = ({
             <div>
               <div className="flex items-center gap-2">
                 <h1 className="text-xl font-black text-slate-800 tracking-tight flex items-center gap-1.5">
-                  HanSearch <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">Web</span>
+                  HanSearch <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">Web v2.1</span>
                 </h1>
+
                 {/* Connection status indicator */}
                 <button
                   onClick={onOpenSettingsModal}
