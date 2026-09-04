@@ -1,5 +1,4 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import * as XLSX from 'xlsx';
 import type { 
   InfoItem, 
   SupabaseConfig, 
@@ -28,12 +27,11 @@ import { SearchBar } from './components/SearchBar';
 import { QuickTags } from './components/QuickTags';
 import { ItemCard } from './components/ItemCard';
 import { DataModal } from './components/DataModal';
-import { ExcelModal } from './components/ExcelModal';
 import { SettingsModal } from './components/SettingsModal';
-import { BulkDeleteModal } from './components/BulkDeleteModal';
 import { HelpModal } from './components/HelpModal';
 import { ImageLightbox } from './components/ImageLightbox';
 import { AlertTriangle, Plus, SearchX, Loader2 } from 'lucide-react';
+
 
 
 export function App() {
@@ -63,10 +61,9 @@ export function App() {
   // Modal States
   const [isDataModalOpen, setIsDataModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<InfoItem | null>(null);
-  const [isExcelModalOpen, setIsExcelModalOpen] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
-  const [isBulkDeleteModalOpen, setIsBulkDeleteModalOpen] = useState(false);
   const [isHelpModalOpen, setIsHelpModalOpen] = useState(false);
+
 
   // Lightbox State
   const [lightboxImages, setLightboxImages] = useState<string[]>([]);
@@ -231,37 +228,8 @@ export function App() {
     setFavorites((prev) => prev.filter((favId) => !ids.includes(favId)));
   };
 
-  const handleBulkInsert = async (newItems: Array<Omit<InfoItem, 'id' | 'created_at'>>) => {
-    const count = await bulkInsertItems(newItems, config);
-    await loadData();
-    return count;
-  };
-
-  // Excel Export
-  const handleExportExcel = () => {
-    if (filteredItems.length === 0) {
-      alert('내보낼 데이터가 없습니다.');
-      return;
-    }
-
-    const exportRows = filteredItems.map((item) => ({
-      ID: item.id,
-      키워드: item.키워드,
-      키워드2: item.키워드2,
-      내용: item.내용,
-      이미지들: item.이미지들 || '',
-      등록일시: item.created_at,
-    }));
-
-    const ws = XLSX.utils.json_to_sheet(exportRows);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'info_검색결과');
-    
-    const today = new Date().toISOString().slice(0, 10);
-    XLSX.writeFile(wb, `HanSearch_Export_${today}.xlsx`);
-  };
-
   // Open Lightbox
+
   const handleOpenImage = (images: string[], index: number) => {
     setLightboxImages(images);
     setLightboxIndex(index);
@@ -455,12 +423,6 @@ export function App() {
         categoryList={uniqueCategoryNames.length > 0 ? uniqueCategoryNames : ['공통']}
       />
 
-      <ExcelModal
-        isOpen={isExcelModalOpen}
-        onClose={() => setIsExcelModalOpen(false)}
-        onBulkInsert={handleBulkInsert}
-      />
-
       <SettingsModal
         isOpen={isSettingsModalOpen}
         onClose={() => setIsSettingsModalOpen(false)}
@@ -468,18 +430,11 @@ export function App() {
         onSaveConfig={handleSaveConfig}
       />
 
-      <BulkDeleteModal
-        isOpen={isBulkDeleteModalOpen}
-        onClose={() => setIsBulkDeleteModalOpen(false)}
-        filteredItems={filteredItems}
-        totalCount={items.length}
-        onConfirmDelete={handleBulkDelete}
-      />
-
       <HelpModal
         isOpen={isHelpModalOpen}
         onClose={() => setIsHelpModalOpen(false)}
       />
+
 
       <ImageLightbox
         isOpen={isLightboxOpen}
