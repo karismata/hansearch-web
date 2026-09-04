@@ -75,7 +75,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
             onChange={(e) => onChangeQuery(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="제목(키워드2) 또는 내용에서 검색... (단축키: /)"
-            className="w-full pl-10 pr-20 py-2.5 bg-white border-2 border-slate-200 rounded-xl text-sm font-medium text-slate-800 placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all shadow-xs"
+            className="w-full pl-10 pr-20 py-2.5 bg-white border-2 border-slate-200 rounded-xl text-base sm:text-sm font-medium text-slate-800 placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all shadow-xs"
           />
           {query && (
             <button
@@ -91,7 +91,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
         {/* Search Action Button */}
         <button
           onClick={onSearchSubmit}
-          className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white text-sm font-semibold rounded-xl transition-all shadow-sm flex items-center gap-1.5 shrink-0"
+          className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white text-base sm:text-sm font-semibold rounded-xl transition-all shadow-sm flex items-center gap-1.5 shrink-0"
         >
           <Search size={16} />
           <span>검색</span>
@@ -109,7 +109,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
             <select
               value={selectedCategory}
               onChange={(e) => onChangeCategory(e.target.value)}
-              className="w-full pl-8 pr-8 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-700 hover:border-slate-300 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-colors appearance-none cursor-pointer"
+              className="w-full pl-8 pr-8 py-1.5 bg-white border border-slate-200 rounded-lg text-base sm:text-xs font-medium text-slate-700 hover:border-slate-300 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-colors appearance-none cursor-pointer"
             >
               <option value="">카테고리 전체 ({categories.reduce((acc, c) => acc + c.count, 0)})</option>
               {categories.map((cat) => (
@@ -149,7 +149,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
             <select
               value={sortOption}
               onChange={(e) => onChangeSort(e.target.value as SortOption)}
-              className="pl-7 pr-7 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-700 hover:border-slate-300 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-colors appearance-none cursor-pointer"
+              className="pl-7 pr-7 py-1.5 bg-white border border-slate-200 rounded-lg text-base sm:text-xs font-medium text-slate-700 hover:border-slate-300 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-colors appearance-none cursor-pointer"
             >
               <option value="latest">정렬: 최신순</option>
               <option value="oldest">정렬: 등록순</option>
