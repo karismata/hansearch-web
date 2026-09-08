@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Utility to smartly compress and resize images client-side before uploading
  * Reduces 5~15MB images down to 100~300KB with crystal clear readability for screenshots/guides.
  */
@@ -68,11 +68,7 @@ export async function compressImage(
       ctx.imageSmoothingQuality = 'high';
       ctx.drawImage(img, 0, 0, width, height);
 
-      // Output format (convert heavy PNG photos to JPEG for 90% size reduction, but keep transparent PNGs)
-      const isPNG = file.type === 'image/png';
-      const outputType = isPNG ? 'image/png' : 'image/jpeg';
-      const outputExt = isPNG ? 'png' : 'jpg';
-
+      // Output standard PNG format for full compatibility with PC app
       canvas.toBlob(
         (blob) => {
           if (!blob) {
@@ -80,22 +76,21 @@ export async function compressImage(
             return;
           }
 
-          // If compressed blob is somehow larger than original, return original
-          if (blob.size >= file.size) {
-            resolve(file);
-            return;
+          let randomHex = '';
+          if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+            randomHex = crypto.randomUUID().replace(/-/g, '').toLowerCase();
+          } else {
+            randomHex = Array.from({ length: 32 }, () => Math.floor(Math.random() * 16).toString(16)).join('');
           }
 
-          const baseName = file.name.replace(/\.[^/.]+$/, '');
-          const compressedFile = new File([blob], `${baseName}.${outputExt}`, {
-            type: outputType,
+          const compressedFile = new File([blob], `img_${randomHex}.png`, {
+            type: 'image/png',
             lastModified: Date.now(),
           });
 
           resolve(compressedFile);
         },
-        outputType,
-        quality
+        'image/png'
       );
     };
 
@@ -103,6 +98,7 @@ export async function compressImage(
     reader.readAsDataURL(file);
   });
 }
+
 
 function getImageDimensions(file: File): Promise<{ width: number; height: number }> {
   return new Promise((resolve) => {

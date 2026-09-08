@@ -287,13 +287,19 @@ export async function uploadImageToStorage(file: File, config?: SupabaseConfig):
 
   const bucketName = targetConfig.storageBucket || DEFAULT_STORAGE_BUCKET;
 
-  const fileExt = file.name.split('.').pop() || 'png';
-  const fileName = `${Date.now()}_${Math.random().toString(36).substring(2, 9)}.${fileExt}`;
-  const filePath = `uploads/${fileName}`;
+  // App version naming format: img_[32-char uuid hex].png directly in bucket root
+  let randomHex = '';
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    randomHex = crypto.randomUUID().replace(/-/g, '').toLowerCase();
+  } else {
+    randomHex = Array.from({ length: 32 }, () => Math.floor(Math.random() * 16).toString(16)).join('');
+  }
+  const filePath = `img_${randomHex}.png`;
 
   const { error } = await client.storage
     .from(bucketName)
     .upload(filePath, file, {
+      contentType: file.type || 'image/png',
       cacheControl: '3600',
       upsert: false,
     });
@@ -308,3 +314,4 @@ export async function uploadImageToStorage(file: File, config?: SupabaseConfig):
 
   return publicUrlData.publicUrl;
 }
+
