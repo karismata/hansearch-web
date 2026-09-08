@@ -285,21 +285,30 @@ export async function uploadImageToStorage(file: File, config?: SupabaseConfig):
     throw new Error('Supabase client not initialized');
   }
 
-  const bucketName = targetConfig.storageBucket || DEFAULT_STORAGE_BUCKET;
+  // Determine extension (.jpg, .png, .gif)
+  let ext = 'jpg';
+  if (file.type === 'image/png') ext = 'png';
+  else if (file.type === 'image/gif') ext = 'gif';
+  else if (file.type === 'image/jpeg') ext = 'jpg';
+  else if (file.name && file.name.includes('.')) {
+    const parts = file.name.split('.');
+    ext = parts[parts.length - 1].toLowerCase();
+    if (ext === 'jpeg') ext = 'jpg';
+  }
 
-  // App version naming format: img_[32-char uuid hex].png directly in bucket root
+  // App version naming format: img_[32-char uuid hex].[ext] directly in bucket root
   let randomHex = '';
   if (typeof crypto !== 'undefined' && crypto.randomUUID) {
     randomHex = crypto.randomUUID().replace(/-/g, '').toLowerCase();
   } else {
     randomHex = Array.from({ length: 32 }, () => Math.floor(Math.random() * 16).toString(16)).join('');
   }
-  const filePath = `img_${randomHex}.png`;
+  const filePath = `img_${randomHex}.${ext}`;
 
   const { error } = await client.storage
     .from(bucketName)
     .upload(filePath, file, {
-      contentType: file.type || 'image/png',
+      contentType: file.type || 'image/jpeg',
       cacheControl: '3600',
       upsert: false,
     });

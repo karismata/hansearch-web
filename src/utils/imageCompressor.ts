@@ -1,6 +1,6 @@
 /**
  * Utility to smartly compress and resize images client-side before uploading
- * Reduces 5~15MB images down to 100~300KB with crystal clear readability for screenshots/guides.
+ * Reduces 3~15MB images down to 150~450KB with crystal clear readability for screenshots/guides.
  */
 export async function compressImage(
   file: File,
@@ -8,26 +8,16 @@ export async function compressImage(
     maxWidth?: number;
     maxHeight?: number;
     quality?: number;
-    maxSizeKB?: number;
   } = {}
 ): Promise<File> {
-  // If not an image or is a GIF (preserve animation), return original
+  // If not an image or is a GIF (preserve animation) or SVG, return original
   if (!file.type.startsWith('image/') || file.type === 'image/gif' || file.type === 'image/svg+xml') {
     return file;
   }
 
   const maxWidth = options.maxWidth || 1600;
   const maxHeight = options.maxHeight || 1600;
-  const quality = options.quality !== undefined ? options.quality : 0.85;
-
-  // If already under 300KB and small, return early
-  if (file.size < 300 * 1024) {
-    // Check dimensions
-    const dims = await getImageDimensions(file);
-    if (dims.width <= maxWidth && dims.height <= maxHeight) {
-      return file;
-    }
-  }
+  const quality = options.quality !== undefined ? options.quality : 0.80;
 
   return new Promise((resolve, reject) => {
     const img = new Image();
@@ -48,7 +38,6 @@ export async function compressImage(
           width = maxWidth;
         } else {
           width = Math.round((width * maxHeight) / height);
-          maxHeight;
           height = maxHeight;
         }
       }
@@ -63,12 +52,16 @@ export async function compressImage(
         return;
       }
 
+      // Fill white background first (avoids black background for transparent PNGs)
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillRect(0, 0, width, height);
+
       // Smooth resizing
       ctx.imageSmoothingEnabled = true;
       ctx.imageSmoothingQuality = 'high';
       ctx.drawImage(img, 0, 0, width, height);
 
-      // Output standard PNG format for full compatibility with PC app
+      // Export as optimized JPEG for maximum compatibility with PC App & Web
       canvas.toBlob(
         (blob) => {
           if (!blob) {
@@ -83,35 +76,19 @@ export async function compressImage(
             randomHex = Array.from({ length: 32 }, () => Math.floor(Math.random() * 16).toString(16)).join('');
           }
 
-          const compressedFile = new File([blob], `img_${randomHex}.png`, {
-            type: 'image/png',
+          const compressedFile = new File([blob], `img_${randomHex}.jpg`, {
+            type: 'image/jpeg',
             lastModified: Date.now(),
           });
 
           resolve(compressedFile);
         },
-        'image/png'
+        'image/jpeg',
+        quality
       );
     };
 
     img.onerror = () => resolve(file);
     reader.readAsDataURL(file);
-  });
-}
-
-
-function getImageDimensions(file: File): Promise<{ width: number; height: number }> {
-  return new Promise((resolve) => {
-    const img = new Image();
-    const url = URL.createObjectURL(file);
-    img.onload = () => {
-      URL.revokeObjectURL(url);
-      resolve({ width: img.width, height: img.height });
-    };
-    img.onerror = () => {
-      URL.revokeObjectURL(url);
-      resolve({ width: 0, height: 0 });
-    };
-    img.src = url;
   });
 }
