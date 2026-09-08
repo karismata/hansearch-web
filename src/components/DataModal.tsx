@@ -156,7 +156,7 @@ export const DataModal: React.FC<DataModalProps> = ({
     setErrorMsg('');
 
     try {
-      const imagePayload = imageUrls.length > 0 ? imageUrls.join('\n') : '';
+      const imagePayload = imageUrls.length > 0 ? imageUrls.join(';') : '';
       await onSave({
         키워드: finalCategory,
         키워드2: title.trim(),
