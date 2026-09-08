@@ -161,7 +161,7 @@ export const DataModal: React.FC<DataModalProps> = ({
         키워드: finalCategory,
         키워드2: title.trim(),
         내용: content.trim(),
-        이미지들: imagePayload || null,
+        이미지들: imagePayload || '',
       });
       onClose();
     } catch (err: any) {

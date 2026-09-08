@@ -155,7 +155,7 @@ export async function insertItem(item: Omit<InfoItem, 'id' | 'created_at'>, conf
         키워드: item.키워드 || '공통',
         키워드2: item.키워드2 || '',
         내용: item.내용 || '',
-        이미지들: item.이미지들 || null,
+        이미지들: item.이미지들 || '',
       }
     ])
     .select()
@@ -183,7 +183,7 @@ export async function bulkInsertItems(items: Array<Omit<InfoItem, 'id' | 'create
     키워드: item.키워드 || '공통',
     키워드2: item.키워드2 || '',
     내용: item.내용 || '',
-    이미지들: item.이미지들 || null,
+    이미지들: item.이미지들 || '',
   }));
 
   const { data, error } = await client
@@ -213,7 +213,7 @@ export async function updateItem(id: number, item: Partial<InfoItem>, config?: S
   if (item.키워드 !== undefined) payload.키워드 = item.키워드;
   if (item.키워드2 !== undefined) payload.키워드2 = item.키워드2;
   if (item.내용 !== undefined) payload.내용 = item.내용;
-  if (item.이미지들 !== undefined) payload.이미지들 = item.이미지들;
+  if (item.이미지들 !== undefined) payload.이미지들 = item.이미지들 || '';
 
   const { data, error } = await client
     .from(targetConfig.tableName || 'info')
