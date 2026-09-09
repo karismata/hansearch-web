@@ -113,21 +113,26 @@ export async function copyToClipboard(text: string): Promise<boolean> {
 
 /**
  * Normalizes content text by converting various newline representations
- * (\n, \\n, <br>, NL, nl, \u2424) into real line breaks.
+ * (\n, \\n, <br>, NL, \u2424, control picture characters) into real line breaks.
  */
 export function normalizeContentText(text?: string | null): string {
   if (!text) return '';
   return text
     .replace(/\\r\\n/g, '\n')
+    .replace(/\\r/g, '\n')
     .replace(/\\n/g, '\n')
     .replace(/\r\n/g, '\n')
     .replace(/\r/g, '\n')
     .replace(/<br\s*\/?>/gi, '\n')
-    .replace(/[\u2424\u0085\u2028\u2029]/g, '\n')
-    // Convert 'NL' / 'nl' delimiter tokens to newlines
-    .replace(/(?:\b|\s)NL(?:\b|\s)/g, '\n')
-    .replace(/(?:\b|\s)nl(?:\b|\s)/g, '\n')
-    .replace(/([^\s])\s*NL\s*([^\s])/gi, '$1\n$2')
+    // Unicode newline & control picture characters (U+2424 ␤, U+240A ␊, U+240D ␍, NEL, LS, PS, VT, FF)
+    .replace(/[\u2424\u240A\u240D\u0085\u2028\u2029\u000B\u000C]/g, '\n')
+    // Explicit 'NL' / 'nl' delimiters (stand-alone or between words/numbers)
+    .replace(/(?:^|[ \t]+)NL(?=[ \t]+|$)/g, '\n')
+    .replace(/(?:^|[ \t]+)nl(?=[ \t]+|$)/g, '\n')
+    .replace(/([가-힣0-9])\s*NL\s*([가-힣0-9])/g, '$1\n$2')
+    .replace(/([가-힣0-9])\s*NL\b/g, '$1\n')
+    .replace(/\bNL\s*([가-힣0-9])/g, '\n$1')
+    .replace(/[ \t]+\n/g, '\n')
     .replace(/\n{3,}/g, '\n\n')
     .trim();
 }

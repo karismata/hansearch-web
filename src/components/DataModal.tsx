@@ -3,7 +3,7 @@ import { X, Upload, Plus, Image as ImageIcon, Trash2, Link as LinkIcon, Loader2 
 import type { InfoItem } from '../types';
 
 import { uploadImageToStorage } from '../lib/supabase';
-import { parseImageUrls } from '../utils/helpers';
+import { parseImageUrls, normalizeContentText } from '../utils/helpers';
 import { compressImage } from '../utils/imageCompressor';
 
 
@@ -49,7 +49,7 @@ export const DataModal: React.FC<DataModalProps> = ({
         setCustomCategory(editingItem.키워드 || '');
       }
       setTitle(editingItem.키워드2 || '');
-      setContent(editingItem.내용 || '');
+      setContent(normalizeContentText(editingItem.내용 || ''));
       setImageUrls(parseImageUrls(editingItem.이미지들));
     } else {
       setCategory(categoryList[0] || '공통');
@@ -160,7 +160,7 @@ export const DataModal: React.FC<DataModalProps> = ({
       await onSave({
         키워드: finalCategory,
         키워드2: title.trim(),
-        내용: content.trim(),
+        내용: normalizeContentText(content),
         이미지들: imagePayload || '',
       });
       onClose();
@@ -272,7 +272,22 @@ export const DataModal: React.FC<DataModalProps> = ({
               placeholder="상세 설명, 조치 방법, 담당자 번호 등을 입력하세요..."
               value={content}
               onChange={(e) => setContent(e.target.value)}
-              className="w-full px-3 py-2 text-sm bg-white border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-mono leading-relaxed"
+              onPaste={(e) => {
+                const pasted = e.clipboardData?.getData('text');
+                if (pasted && (/[\u2424\u240A\u240D\u0085\u2028\u2029]/.test(pasted) || pasted.includes('\\n') || /\bNL\b/.test(pasted))) {
+                  e.preventDefault();
+                  const normalized = normalizeContentText(pasted);
+                  const target = e.currentTarget;
+                  const start = target.selectionStart;
+                  const end = target.selectionEnd;
+                  const nextVal = content.substring(0, start) + normalized + content.substring(end);
+                  setContent(nextVal);
+                  setTimeout(() => {
+                    target.selectionStart = target.selectionEnd = start + normalized.length;
+                  }, 0);
+                }
+              }}
+              className="w-full px-3 py-2 text-sm bg-white border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 leading-relaxed font-sans"
             />
           </div>
 
