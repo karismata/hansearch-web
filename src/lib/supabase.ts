@@ -285,6 +285,8 @@ export async function uploadImageToStorage(file: File, config?: SupabaseConfig):
     throw new Error('Supabase client not initialized');
   }
 
+  const bucketName = targetConfig.storageBucket || DEFAULT_STORAGE_BUCKET;
+
   // Determine extension (.jpg, .png, .gif)
   let ext = 'jpg';
   if (file.type === 'image/png') ext = 'png';
