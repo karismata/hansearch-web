@@ -68,14 +68,21 @@ export function formatDate(dateString?: string): string {
 }
 
 /**
- * Parses image URL(s) from text. Can handle comma-separated, space-separated,
- * newlines, or JSON arrays.
+ * Parses image URL(s) from text. Can handle semicolons, newlines, or JSON arrays.
  */
 export function parseImageUrls(raw?: string | null): string[] {
   if (!raw) return [];
   const trimmed = raw.trim();
   if (!trimmed || trimmed.toUpperCase() === 'EMPTY' || trimmed.toUpperCase() === 'NULL') {
     return [];
+  }
+
+  // If raw string starts with data:image/ (Base64 data url), extract data URLs safely
+  if (trimmed.startsWith('data:image/')) {
+    const matches = trimmed.match(/data:image\/[^;]+;base64,[A-Za-z0-9+/=]+/g);
+    if (matches && matches.length > 0) {
+      return matches;
+    }
   }
 
   // Try JSON parse first
@@ -90,8 +97,8 @@ export function parseImageUrls(raw?: string | null): string[] {
     }
   }
 
-  // Split by newlines, commas, or semicolons
-  const parts = trimmed.split(/[\n,;]+/).map(s => s.trim()).filter(Boolean);
+  // Split by newlines or semicolons for standard URLs
+  const parts = trimmed.split(/[\n;]+/).map(s => s.trim()).filter(Boolean);
   return parts;
 }
 

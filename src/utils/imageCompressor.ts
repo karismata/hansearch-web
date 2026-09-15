@@ -10,8 +10,11 @@ export async function compressImage(
     quality?: number;
   } = {}
 ): Promise<File> {
-  // If not an image or is a GIF (preserve animation) or SVG, return original
-  if (!file.type.startsWith('image/') || file.type === 'image/gif' || file.type === 'image/svg+xml') {
+  const isGif = file.type === 'image/gif' || /\.gif$/i.test(file.name);
+  const isSvg = file.type === 'image/svg+xml' || /\.svg$/i.test(file.name);
+
+  // If GIF or SVG, preserve original
+  if (isGif || isSvg) {
     return file;
   }
 
@@ -19,17 +22,26 @@ export async function compressImage(
   const maxHeight = options.maxHeight || 1600;
   const quality = options.quality !== undefined ? options.quality : 0.80;
 
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    const reader = new FileReader();
+  return new Promise((resolve) => {
+    let objectUrl = '';
+    try {
+      objectUrl = URL.createObjectURL(file);
+    } catch {
+      // ignore
+    }
 
-    reader.onload = (e) => {
-      img.src = e.target?.result as string;
-    };
-    reader.onerror = (err) => reject(err);
+    const img = new Image();
 
     img.onload = () => {
+      if (objectUrl) {
+        URL.revokeObjectURL(objectUrl);
+      }
+
       let { width, height } = img;
+      if (!width || !height) {
+        resolve(file);
+        return;
+      }
 
       // Calculate scaled dimensions keeping aspect ratio
       if (width > maxWidth || height > maxHeight) {
@@ -52,7 +64,7 @@ export async function compressImage(
         return;
       }
 
-      // Fill white background first (avoids black background for transparent PNGs)
+      // Fill white background first (avoids black background for transparent PNGs/WebPs)
       ctx.fillStyle = '#FFFFFF';
       ctx.fillRect(0, 0, width, height);
 
@@ -88,7 +100,22 @@ export async function compressImage(
       );
     };
 
-    img.onerror = () => resolve(file);
-    reader.readAsDataURL(file);
+    img.onerror = () => {
+      if (objectUrl) {
+        URL.revokeObjectURL(objectUrl);
+      }
+      resolve(file);
+    };
+
+    if (objectUrl) {
+      img.src = objectUrl;
+    } else {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        img.src = e.target?.result as string;
+      };
+      reader.onerror = () => resolve(file);
+      reader.readAsDataURL(file);
+    }
   });
 }

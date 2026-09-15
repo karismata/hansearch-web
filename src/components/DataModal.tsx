@@ -95,23 +95,14 @@ export const DataModal: React.FC<DataModalProps> = ({
       const processedFile = await compressImage(file, {
         maxWidth: 1600,
         maxHeight: 1600,
-        quality: 0.85,
+        quality: 0.80,
       });
 
       const uploadedUrl = await uploadImageToStorage(processedFile);
       setImageUrls((prev) => [...prev, uploadedUrl]);
     } catch (err: any) {
-      console.warn('Storage upload error, converting to base64 fallback:', err);
-      // Fallback: Read as base64 data URL if storage upload failed
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const base64 = event.target?.result as string;
-        if (base64) {
-          setImageUrls((prev) => [...prev, base64]);
-        }
-      };
-      reader.readAsDataURL(file);
-      setErrorMsg(`스토리지 업로드 경고 (${err.message}) - 로컬 미리보기로 첨부되었습니다.`);
+      console.error('Storage upload error:', err);
+      setErrorMsg(`이미지 업로드 실패: ${err.message || '파일 또는 네트워크 상태를 확인해주세요.'}`);
     } finally {
       setIsUploading(false);
     }
