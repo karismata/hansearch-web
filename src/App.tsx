@@ -150,9 +150,9 @@ export function App() {
 
   // Filtered & Sorted Items
   const filteredItems = useMemo(() => {
-    // Split on the standalone word "and"; all terms must match somewhere across the item.
+    // Split on whitespace so every typed term must match somewhere across the item.
     const searchTerms = activeSearch
-      .split(/\s+and\s+/i)
+      .split(/\s+/)
       .map((term) => term.trim().toLowerCase().replace(/^#/, ''))
       .filter(Boolean);
 
