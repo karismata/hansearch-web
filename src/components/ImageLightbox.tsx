@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { X, ZoomIn, ZoomOut, RotateCw, ExternalLink, Download, ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface ImageLightboxProps {
@@ -17,11 +17,14 @@ export const ImageLightbox: React.FC<ImageLightboxProps> = ({
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
   const [zoom, setZoom] = useState(1);
   const [rotation, setRotation] = useState(0);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const dragStart = useRef<{ x: number; y: number; panX: number; panY: number } | null>(null);
 
   useEffect(() => {
     setCurrentIndex(initialIndex);
     setZoom(1);
     setRotation(0);
+    setPan({ x: 0, y: 0 });
   }, [initialIndex, isOpen]);
 
   useEffect(() => {
@@ -43,17 +46,36 @@ export const ImageLightbox: React.FC<ImageLightboxProps> = ({
     setCurrentIndex((prev) => (prev + 1) % images.length);
     setZoom(1);
     setRotation(0);
+    setPan({ x: 0, y: 0 });
   };
 
   const prevImage = () => {
     setCurrentIndex((prev) => (prev - 1 + images.length) % images.length);
     setZoom(1);
     setRotation(0);
+    setPan({ x: 0, y: 0 });
   };
 
-  const handleZoomIn = () => setZoom((prev) => Math.min(prev + 0.25, 3));
+  const handleZoomIn = () => setZoom((prev) => Math.min(prev + 0.25, 5));
   const handleZoomOut = () => setZoom((prev) => Math.max(prev - 0.25, 0.5));
   const handleRotate = () => setRotation((prev) => (prev + 90) % 360);
+
+  const handlePointerDown = (e: React.PointerEvent<HTMLImageElement>) => {
+    if (zoom <= 1) return;
+    e.preventDefault();
+    e.currentTarget.setPointerCapture(e.pointerId);
+    dragStart.current = { x: e.clientX, y: e.clientY, panX: pan.x, panY: pan.y };
+  };
+
+  const handlePointerMove = (e: React.PointerEvent<HTMLImageElement>) => {
+    if (!dragStart.current) return;
+    setPan({
+      x: dragStart.current.panX + e.clientX - dragStart.current.x,
+      y: dragStart.current.panY + e.clientY - dragStart.current.y,
+    });
+  };
+
+  const handlePointerUp = () => { dragStart.current = null; };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-sm select-none animate-fadeIn">
@@ -88,7 +110,7 @@ export const ImageLightbox: React.FC<ImageLightboxProps> = ({
           target="_blank"
           rel="noopener noreferrer"
           title="새 탭에서 원본 보기"
-          className="p-1.5 text-slate-300 hover:text-white hover:bg-slate-800 rounded-full transition-colors"
+          className="p-1.5 text-slate-300 hover:text-white hover-bg-slate-800 rounded-full transition-colors"
         >
           <ExternalLink size={18} />
         </a>
@@ -96,7 +118,7 @@ export const ImageLightbox: React.FC<ImageLightboxProps> = ({
           href={currentUrl}
           download={`image_${currentIndex + 1}`}
           title="다운로드"
-          className="p-1.5 text-slate-300 hover:text-white hover:bg-slate-800 rounded-full transition-colors"
+          className="p-1.5 text-slate-300 hover:text-white hover-bg:slate-800 rounded-full transition-colors"
         >
           <Download size={18} />
         </a>
@@ -130,18 +152,26 @@ export const ImageLightbox: React.FC<ImageLightboxProps> = ({
 
       {/* Image container */}
       <div
-        className="max-w-[90vw] max-h-[85vh] flex items-center justify-center overflow-hidden cursor-zoom-out"
+        className="absolute inset-0 flex items-center justify-center overflow-hidden"
         onClick={onClose}
       >
         <img
           src={currentUrl}
           alt="Preview"
           onClick={(e) => e.stopPropagation()}
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          onPointerCancel={handlePointerUp}
           style={{
-            transform: `scale(${zoom}) rotate(${rotation}deg)`,
+            transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom}) rotate(${rotation}deg)`,
             transition: 'transform 0.2s ease-in-out',
+            maxWidth: '90vw',
+            maxHeight: '85vh',
+            cursor: zoom > 1 ? (dragStart.current ? 'grabbing' : 'grab') : 'default',
+            touchAction: 'none',
           }}
-          className="max-w-full max-h-[85vh] object-contain rounded-lg shadow-2xl cursor-default"
+          className="object-contain rounded-lg shadow-2xl"
         />
       </div>
     </div>
