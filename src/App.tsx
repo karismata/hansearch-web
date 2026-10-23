@@ -150,7 +150,11 @@ export function App() {
 
   // Filtered & Sorted Items
   const filteredItems = useMemo(() => {
-    const query = activeSearch.toLowerCase().replace(/^#/, '');
+    // Split on the standalone word "and"; all terms must match somewhere across the item.
+    const searchTerms = activeSearch
+      .split(/\s+and\s+/i)
+      .map((term) => term.trim().toLowerCase().replace(/^#/, ''))
+      .filter(Boolean);
 
     return items
       .filter((item) => {
@@ -170,11 +174,12 @@ export function App() {
 
 
         // Keyword Search (키워드2 and 내용)
-        if (query) {
+        if (searchTerms.length > 0) {
           const title = (item.키워드2 || '').toLowerCase();
           const content = (item.내용 || '').toLowerCase();
           const keyword = (item.키워드 || '').toLowerCase();
-          return title.includes(query) || content.includes(query) || keyword.includes(query);
+          const searchableText = `${title}\n${content}\n${keyword}`;
+          return searchTerms.every((term) => searchableText.includes(term));
         }
 
         return true;
