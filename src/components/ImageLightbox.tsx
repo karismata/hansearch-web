@@ -18,6 +18,7 @@ export const ImageLightbox: React.FC<ImageLightboxProps> = ({
   const [zoom, setZoom] = useState(1);
   const [rotation, setRotation] = useState(0);
   const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
   const dragStart = useRef<{ x: number; y: number; panX: number; panY: number } | null>(null);
 
   useEffect(() => {
@@ -25,6 +26,7 @@ export const ImageLightbox: React.FC<ImageLightboxProps> = ({
     setZoom(1);
     setRotation(0);
     setPan({ x: 0, y: 0 });
+    setIsDragging(false);
   }, [initialIndex, isOpen]);
 
   useEffect(() => {
@@ -47,6 +49,7 @@ export const ImageLightbox: React.FC<ImageLightboxProps> = ({
     setZoom(1);
     setRotation(0);
     setPan({ x: 0, y: 0 });
+    setIsDragging(false);
   };
 
   const prevImage = () => {
@@ -54,20 +57,22 @@ export const ImageLightbox: React.FC<ImageLightboxProps> = ({
     setZoom(1);
     setRotation(0);
     setPan({ x: 0, y: 0 });
+    setIsDragging(false);
   };
 
   const handleZoomIn = () => setZoom((prev) => Math.min(prev + 0.25, 5));
   const handleZoomOut = () => setZoom((prev) => Math.max(prev - 0.25, 0.5));
   const handleRotate = () => setRotation((prev) => (prev + 90) % 360);
 
-  const handlePointerDown = (e: React.PointerEvent<HTMLImageElement>) => {
+  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     if (zoom <= 1) return;
     e.preventDefault();
     e.currentTarget.setPointerCapture(e.pointerId);
     dragStart.current = { x: e.clientX, y: e.clientY, panX: pan.x, panY: pan.y };
+    setIsDragging(true);
   };
 
-  const handlePointerMove = (e: React.PointerEvent<HTMLImageElement>) => {
+  const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
     if (!dragStart.current) return;
     setPan({
       x: dragStart.current.panX + e.clientX - dragStart.current.x,
@@ -75,7 +80,17 @@ export const ImageLightbox: React.FC<ImageLightboxProps> = ({
     });
   };
 
-  const handlePointerUp = () => { dragStart.current = null; };
+  const handlePointerUp = () => {
+    dragStart.current = null;
+    setIsDragging(false);
+  };
+
+  const handleWheel = (e: React.WheelEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    const nextZoom = Math.min(5, Math.max(0.5, zoom + (e.deltaY < 0 ? 0.2 : -0.2)));
+    setZoom(nextZoom);
+    if (nextZoom <= 1) setPan({ x: 0, y: 0 });
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-sm select-none animate-fadeIn">
@@ -154,22 +169,23 @@ export const ImageLightbox: React.FC<ImageLightboxProps> = ({
       <div
         className="absolute inset-0 flex items-center justify-center overflow-hidden"
         onClick={onClose}
+        onWheel={handleWheel}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerUp}
+        style={{ cursor: zoom > 1 ? (isDragging ? 'grabbing' : 'grab') : 'default', touchAction: 'none' }}
       >
         <img
           src={currentUrl}
           alt="Preview"
           onClick={(e) => e.stopPropagation()}
-          onPointerDown={handlePointerDown}
-          onPointerMove={handlePointerMove}
-          onPointerUp={handlePointerUp}
-          onPointerCancel={handlePointerUp}
           style={{
             transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom}) rotate(${rotation}deg)`,
-            transition: 'transform 0.2s ease-in-out',
+            transition: isDragging ? 'none' : 'transform 0.2s ease-in-out',
             maxWidth: '90vw',
             maxHeight: '85vh',
-            cursor: zoom > 1 ? (dragStart.current ? 'grabbing' : 'grab') : 'default',
-            touchAction: 'none',
+            flexShrink: 0,
           }}
           className="object-contain rounded-lg shadow-2xl"
         />
@@ -177,3 +193,4 @@ export const ImageLightbox: React.FC<ImageLightboxProps> = ({
     </div>
   );
 };
+
