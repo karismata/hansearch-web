@@ -37,7 +37,7 @@ export const ImageLightbox: React.FC<ImageLightboxProps> = ({
       if (e.key === 'ArrowLeft' && images.length > 1) prevImage();
     };
     window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+  return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, images.length, currentIndex]);
 
   if (!isOpen || images.length === 0) return null;
@@ -87,9 +87,13 @@ export const ImageLightbox: React.FC<ImageLightboxProps> = ({
 
   const handleWheel = (e: React.WheelEvent<HTMLDivElement>) => {
     e.preventDefault();
-    const nextZoom = Math.min(5, Math.max(0.5, zoom + (e.deltaY < 0 ? 0.2 : -0.2)));
+    const nextZoom = Math.min(5, Math.max(0.5, zoom * Math.exp(-e.deltaY * 0.0008)));
     setZoom(nextZoom);
     if (nextZoom <= 1) setPan({ x: 0, y: 0 });
+  };
+
+  const handleViewportClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (e.target === e.currentTarget && zoom <= 1) onClose();
   };
 
   return (
@@ -168,7 +172,7 @@ export const ImageLightbox: React.FC<ImageLightboxProps> = ({
       {/* Image container */}
       <div
         className="absolute inset-0 flex items-center justify-center overflow-hidden"
-        onClick={onClose}
+        onClick={handleViewportClick}
         onWheel={handleWheel}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
@@ -193,4 +197,3 @@ export const ImageLightbox: React.FC<ImageLightboxProps> = ({
     </div>
   );
 };
-
