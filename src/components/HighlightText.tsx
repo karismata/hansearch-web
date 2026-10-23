@@ -15,7 +15,7 @@ export const HighlightText: React.FC<HighlightTextProps> = ({ text, query, class
   }
 
   const searchTerms = query
-    .split(/\s+and\s+/i)
+    .split(/\s+/)
     .map((term) => term.trim().replace(/^#/, ''))
     .filter(Boolean);
   if (searchTerms.length === 0) {
@@ -23,7 +23,7 @@ export const HighlightText: React.FC<HighlightTextProps> = ({ text, query, class
   }
 
   try {
-    // Escape special regex characters and highlight every AND search term.
+    // Escape special regex characters and highlight every search term.
     const escapedTerms = searchTerms
       .sort((a, b) => b.length - a.length)
       .map((term) => term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
