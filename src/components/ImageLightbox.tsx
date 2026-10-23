@@ -110,7 +110,7 @@ export const ImageLightbox: React.FC<ImageLightboxProps> = ({
           target="_blank"
           rel="noopener noreferrer"
           title="새 탭에서 원본 보기"
-          className="p-1.5 text-slate-300 hover:text-white hover-bg-slate-800 rounded-full transition-colors"
+          className="p-1.5 text-slate-300 hover:text-white hover:bg-slate-800 rounded-full transition-colors"
         >
           <ExternalLink size={18} />
         </a>
@@ -118,7 +118,7 @@ export const ImageLightbox: React.FC<ImageLightboxProps> = ({
           href={currentUrl}
           download={`image_${currentIndex + 1}`}
           title="다운로드"
-          className="p-1.5 text-slate-300 hover:text-white hover-bg:slate-800 rounded-full transition-colors"
+          className="p-1.5 text-slate-300 hover:text-white hover:bg-slate-800 rounded-full transition-colors"
         >
           <Download size={18} />
         </a>
