@@ -45,6 +45,14 @@ fs.copyFileSync(
   path.join(rootDir, 'index.html')
 );
 
+// Copy favicon to the repository root for static root hosting compatibility
+if (fs.existsSync(path.join(rootDir, 'public', 'favicon.svg'))) {
+  fs.copyFileSync(
+    path.join(rootDir, 'public', 'favicon.svg'),
+    path.join(rootDir, 'favicon.svg')
+  );
+}
+
 // Copy _headers to dist and root
 if (fs.existsSync(path.join(rootDir, 'public', '_headers'))) {
   fs.copyFileSync(
