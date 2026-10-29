@@ -4,7 +4,8 @@ import {
   HelpCircle, 
   PlusCircle, 
   RefreshCw,
-  Layers
+  Layers,
+  Download
 } from 'lucide-react';
 
 interface HeaderProps {
@@ -69,6 +70,17 @@ export const Header: React.FC<HeaderProps> = ({
 
         {/* Action Buttons */}
         <div className="flex items-center flex-wrap gap-2">
+          {/* Android app download */}
+          <a
+            href="/downloads/HanSearch.apk"
+            download="HanSearch.apk"
+            className="px-3 py-2 text-xs font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors border border-blue-200 flex items-center gap-1.5"
+            title="HanSearch Android 앱 다운로드"
+          >
+            <Download size={15} />
+            <span>앱 다운로드</span>
+          </a>
+
           {/* Refresh button */}
           <button
             onClick={onRefresh}
