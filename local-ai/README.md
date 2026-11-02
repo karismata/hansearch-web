@@ -20,8 +20,9 @@ minutes. Search and answer generation still run on the Mac mini.
 2. Copy `.env.example` to `.env` in this directory. Check the Supabase URL/key/table
    against HanSearch's Settings screen if you changed them there.
 3. Set `AI_ACCESS_TOKEN` to the same random key configured as the Cloudflare Worker
-   secret and entered in HanSearch's Settings screen. Use a random key of at least
-   32 characters; never commit `.env`.
+   secret. Keep it on the Mac mini and in the Worker secret; it is no longer entered
+   in HanSearch or stored in browser storage. Use a random key of at least 32
+   characters; never commit `.env`.
 4. In Terminal, from this directory, run `python3 server.py`.
 5. Open `http://127.0.0.1:8765/health` on the Mac mini. Initial sync starts
    automatically; later syncs run every five minutes.
@@ -48,3 +49,4 @@ operation fails, the prior local snapshot is retained. A later successful sync
 reconciles additions, edits, and deletions. The Worker relay is available only
 after its AIQueue Durable Object migration is deployed and the `AI_ACCESS_TOKEN`
 Worker secret is configured.
+
