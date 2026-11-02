@@ -100,13 +100,13 @@ export function App() {
   }, [loadData]);
 
   // Favorites Management
-  const handleToggleFavorite = (id: number) => {
+  const handleToggleFavorite = useCallback((id: number) => {
     setFavorites((prev) => {
       const next = prev.includes(id) ? prev.filter((favId) => favId !== id) : [...prev, id];
       saveStoredFavorites(next);
       return next;
     });
-  };
+  }, []);
 
   // Tags Management
   const handleUpdateTags = (newTags: string[]) => {
@@ -271,7 +271,7 @@ export function App() {
     }
   };
 
-  const handleDeleteItem = async (id: number) => {
+  const handleDeleteItem = useCallback(async (id: number) => {
     if (!window.confirm('이 항목을 정말 삭제하시겠습니까?')) return;
     try {
       await deleteItem(id, config);
@@ -280,7 +280,7 @@ export function App() {
     } catch (err: any) {
       alert(`삭제 실패: ${err.message}`);
     }
-  };
+  }, [config]);
 
   const handleBulkDelete = async (ids: number[]) => {
     await bulkDeleteItems(ids, config);
@@ -290,11 +290,16 @@ export function App() {
 
   // Open Lightbox
 
-  const handleOpenImage = (images: string[], index: number) => {
+  const handleOpenImage = useCallback((images: string[], index: number) => {
     setLightboxImages(images);
     setLightboxIndex(index);
     setIsLightboxOpen(true);
-  };
+  }, []);
+
+  const handleEditItem = useCallback((target: InfoItem) => {
+    setEditingItem(target);
+    setIsDataModalOpen(true);
+  }, []);
 
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col selection:bg-blue-500 selection:text-white">
@@ -491,10 +496,7 @@ export function App() {
                   searchQuery={activeSearch}
                   isFavorite={favorites.includes(item.id!)}
                   onToggleFavorite={handleToggleFavorite}
-                  onEdit={(target) => {
-                    setEditingItem(target);
-                    setIsDataModalOpen(true);
-                  }}
+                  onEdit={handleEditItem}
                   onDelete={handleDeleteItem}
                   onOpenImage={handleOpenImage}
                 />
@@ -542,3 +544,4 @@ export function App() {
 }
 
 export default App;
+
