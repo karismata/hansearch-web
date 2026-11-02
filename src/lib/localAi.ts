@@ -24,6 +24,7 @@ export interface AISearchResult {
   summary: string;
   results: Array<{ id: number; score: number }>;
   synced_count: number;
+  saved_answer?: boolean;
 }
 
 export type AISearchStatus = 'pending' | 'processing';
@@ -61,6 +62,6 @@ export async function runAISearch(
     if (status.status === 'error') throw new Error(status.error || 'AI 검색 처리에 실패했습니다.');
   }
 
-  throw new Error('AI 검색 시간이 초과됐습니다. 맥미니가 켜져 있는지 확인해 주세요.');
+  throw new Error('AI 검색 시간이 초과됐습니다. 한주AI 연결 상태를 확인해 주세요.');
 }
 
