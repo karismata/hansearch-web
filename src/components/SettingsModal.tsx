@@ -91,7 +91,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             <Info size={16} className="shrink-0 mt-0.5" />
             <div>
               <p className="font-semibold mb-0.5">안내</p>
-              <p>Supabase 연결 설정은 이 브라우저에 저장됩니다. AI 검색은 Cloudflare를 통해 맥미니에 전달되며, 브라우저별 연결 키 입력은 필요하지 않습니다.</p>
+              <p>Supabase 연결 설정은 이 브라우저에 저장됩니다. 한주AI 검색은 별도의 연결 키 입력 없이 이용할 수 있습니다.</p>
             </div>
           </div>
 
