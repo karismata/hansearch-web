@@ -1,7 +1,7 @@
-import React, { useRef, useEffect } from 'react';
-import { Search, X, Filter, ArrowUpDown, Star, Sparkles, Loader2 } from 'lucide-react';
+import { useRef, useEffect } from 'react';
+import type { KeyboardEvent } from 'react';
+import { Search, X, Filter, Star, Sparkles, Loader2 } from 'lucide-react';
 import type { SortOption } from '../types';
-
 
 interface SearchBarProps {
   query: string;
@@ -9,177 +9,67 @@ interface SearchBarProps {
   onSearchSubmit: () => void;
   onAiSearchSubmit: () => void;
   isAiSearching: boolean;
-  selectedCategory: string;
-  onChangeCategory: (cat: string) => void;
-  categories: { name: string; count: number }[];
-  sortOption: SortOption;
-  onChangeSort: (sort: SortOption) => void;
-  showOnlyFavorites: boolean;
-  onToggleFavorites: () => void;
-  favoriteCount: number;
 }
 
-export const SearchBar: React.FC<SearchBarProps> = ({
-  query,
-  onChangeQuery,
-  onSearchSubmit,
-  onAiSearchSubmit,
-  isAiSearching,
-  selectedCategory,
-  onChangeCategory,
-  categories,
-  sortOption,
-  onChangeSort,
-  showOnlyFavorites,
-  onToggleFavorites,
-  favoriteCount,
-}) => {
+export function SearchBar({ query, onChangeQuery, onSearchSubmit, onAiSearchSubmit, isAiSearching }: SearchBarProps) {
   const inputRef = useRef<HTMLInputElement>(null);
-
-  // Global shortcut '/' to focus search input
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (
-        e.key === '/' &&
-        document.activeElement?.tagName !== 'INPUT' &&
-        document.activeElement?.tagName !== 'TEXTAREA'
-      ) {
-        e.preventDefault();
-        inputRef.current?.focus();
-        inputRef.current?.select();
+    const handleKey = (event: globalThis.KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (event.key === '/' && !target?.closest('input, textarea, select, [contenteditable="true"]')) {
+        event.preventDefault(); inputRef.current?.focus(); inputRef.current?.select();
       }
     };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
   }, []);
-
-  const handleClear = () => {
-    onChangeQuery('');
-    inputRef.current?.focus();
+  const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === 'Enter' && !event.nativeEvent.isComposing) onSearchSubmit();
   };
-
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
-      onSearchSubmit();
-    }
-  };
-
   return (
-    <div className="space-y-2.5">
-      {/* Top Main Search Bar */}
-      <div className="flex items-center gap-2">
-        <div className="relative flex-1">
-          <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-            <Search size={18} />
-          </div>
-          <input
-            ref={inputRef}
-            type="text"
-            value={query}
-            onChange={(e) => onChangeQuery(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="제목(키워드2) 또는 내용에서 검색... (단축키: /)"
-            className="w-full pl-10 pr-20 py-2.5 bg-white border-2 border-slate-200 rounded-xl text-base sm:text-sm font-medium text-slate-800 placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all shadow-xs"
-          />
-          {query && (
-            <button
-              onClick={handleClear}
-              className="absolute inset-y-0 right-2 px-2 flex items-center text-slate-400 hover:text-slate-600"
-              title="검색어 지우기"
-            >
-              <X size={16} />
-            </button>
-          )}
-        </div>
-
-        {/* Search Action Button */}
-        <div className="flex items-center gap-1.5 shrink-0">
-          <button
-            onClick={onSearchSubmit}
-            className="px-4 sm:px-6 py-2.5 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white text-base sm:text-sm font-semibold rounded-xl transition-all shadow-sm flex items-center gap-1.5"
-          >
-            <Search size={16} />
-            <span>검색</span>
-          </button>
-          <button
-            onClick={onAiSearchSubmit}
-            disabled={isAiSearching || !query.trim()}
-            title="한주AI로 관련 자료 검색"
-            className="px-3 sm:px-4 py-2.5 bg-violet-600 hover:bg-violet-700 active:bg-violet-800 text-white text-base sm:text-sm font-semibold rounded-xl transition-all shadow-sm flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {isAiSearching ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
-            <span>AI 검색</span>
-          </button>
-        </div>
+    <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center">
+      <div className="relative min-w-0 flex-1">
+        <Search size={18} className="pointer-events-none absolute left-3 top-3 text-slate-400" />
+        <input ref={inputRef} type="text" aria-label="검색어" value={query} onChange={(event) => onChangeQuery(event.target.value)} onKeyDown={handleKeyDown}
+          placeholder="검색어 입력 (단축키: /)" className="w-full rounded-xl border-2 border-slate-200 bg-white py-2.5 pl-9 pr-10 text-base font-medium text-slate-800 placeholder-slate-400 focus:border-blue-500 focus:outline-none sm:text-sm" />
+        {query && <button type="button" onClick={() => { onChangeQuery(''); inputRef.current?.focus(); }} aria-label="검색어 지우기" title="검색어 지우기" className="absolute inset-y-0 right-1 flex w-9 items-center justify-center text-slate-400 hover:text-slate-700"><X size={16} /></button>}
       </div>
-
-      {/* Filter and Sort Row */}
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        {/* Category Dropdown */}
-        <div className="flex items-center gap-2 flex-1 min-w-[200px]">
-          <div className="relative w-full max-w-xs">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
-              <Filter size={14} />
-            </div>
-            <select
-              value={selectedCategory}
-              onChange={(e) => onChangeCategory(e.target.value)}
-              className="w-full pl-8 pr-8 py-1.5 bg-white border border-slate-200 rounded-lg text-base sm:text-xs font-medium text-slate-700 hover:border-slate-300 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-colors appearance-none cursor-pointer"
-            >
-              <option value="">카테고리 전체 ({categories.reduce((acc, c) => acc + c.count, 0)})</option>
-              {categories.map((cat) => (
-                <option key={cat.name} value={cat.name}>
-                  {cat.name} ({cat.count})
-                </option>
-              ))}
-            </select>
-            <div className="absolute inset-y-0 right-0 pr-2.5 flex items-center pointer-events-none text-slate-400">
-              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
-              </svg>
-            </div>
-          </div>
-
-          {/* Favorite filter toggle */}
-          <button
-            onClick={onToggleFavorites}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium border flex items-center gap-1 transition-all ${
-              showOnlyFavorites
-                ? 'bg-amber-500 text-white border-amber-500 shadow-xs'
-                : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
-            }`}
-            title="즐겨찾기한 항목만 모아보기"
-          >
-            <Star size={13} className={showOnlyFavorites ? 'fill-current' : 'text-amber-500 fill-amber-500/30'} />
-            <span>즐겨찾기 ({favoriteCount})</span>
-          </button>
-        </div>
-
-        {/* Sort Dropdown */}
-        <div className="flex items-center gap-1.5">
-          <div className="relative">
-            <div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none text-slate-400">
-              <ArrowUpDown size={13} />
-            </div>
-            <select
-              value={sortOption}
-              onChange={(e) => onChangeSort(e.target.value as SortOption)}
-              className="pl-7 pr-7 py-1.5 bg-white border border-slate-200 rounded-lg text-base sm:text-xs font-medium text-slate-700 hover:border-slate-300 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-colors appearance-none cursor-pointer"
-            >
-              <option value="latest">정렬: 최신순</option>
-              <option value="oldest">정렬: 등록순</option>
-              <option value="title_asc">정렬: 제목 오름차순 (가나다)</option>
-              <option value="title_desc">정렬: 제목 내림차순 (하파타)</option>
-            </select>
-            <div className="absolute inset-y-0 right-0 pr-2 flex items-center pointer-events-none text-slate-400">
-              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
-              </svg>
-            </div>
-          </div>
-        </div>
+      <div className="flex shrink-0 items-center justify-end gap-1.5">
+        <button type="button" onClick={onSearchSubmit} className="flex items-center gap-1.5 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700"><Search size={16} /><span>검색</span></button>
+        <button type="button" onClick={onAiSearchSubmit} disabled={isAiSearching || !query.trim()} title="한주AI로 관련 자료 검색" className="flex items-center gap-1.5 rounded-xl bg-violet-600 px-3 py-2.5 text-sm font-semibold text-white hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-50">
+          {isAiSearching ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}<span>AI 검색</span>
+        </button>
       </div>
     </div>
   );
-};
+}
+
+interface SearchFilterProps {
+  selectedCategory: string;
+  onChangeCategory: (value: string) => void;
+  categories: { name: string; count: number }[];
+  sortOption: SortOption;
+  onChangeSort: (value: SortOption) => void;
+  showOnlyFavorites: boolean;
+  onToggleFavorites: () => void;
+}
+
+export function SearchFilters({ selectedCategory, onChangeCategory, categories, sortOption, onChangeSort, showOnlyFavorites, onToggleFavorites }: SearchFilterProps) {
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-2">
+      <div className="flex min-w-0 flex-wrap items-center gap-2">
+        <div className="relative">
+          <Filter size={14} className="pointer-events-none absolute left-2.5 top-2.5 text-slate-400" />
+          <select aria-label="카테고리" value={selectedCategory} onChange={(event) => onChangeCategory(event.target.value)} className="max-w-full rounded-lg border border-slate-200 bg-white py-1.5 pl-8 pr-6 text-xs text-slate-700">
+            <option value="">카테고리 전체</option>{categories.map((category) => <option key={category.name} value={category.name}>{category.name}</option>)}
+          </select>
+        </div>
+        <button type="button" onClick={onToggleFavorites} aria-pressed={showOnlyFavorites} className={`flex items-center gap-1 rounded-lg border px-3 py-1.5 text-xs ${showOnlyFavorites ? 'border-amber-500 bg-amber-500 text-white' : 'border-slate-200 bg-white text-slate-700'}`}><Star size={13} />즐겨찾기</button>
+      </div>
+      <select aria-label="정렬" value={sortOption} onChange={(event) => onChangeSort(event.target.value as SortOption)} className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-700">
+        <option value="latest">최신순</option><option value="oldest">등록순</option><option value="title_asc">제목 오름차순</option><option value="title_desc">제목 내림차순</option>
+      </select>
+    </div>
+  );
+}
 
