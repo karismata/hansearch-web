@@ -4,6 +4,8 @@ const ALLOWED_ORIGINS = new Set([
   "http://localhost:5173",
 ]);
 const JOB_TTL_MS = 10 * 60 * 1000;
+const RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000;
+const MAX_JOBS_PER_IP = 20;
 
 function isAllowedOrigin(origin) {
   if (ALLOWED_ORIGINS.has(origin)) return true;
@@ -20,7 +22,7 @@ function corsHeaders(request) {
   const origin = request.headers.get("Origin") || "";
   const headers = new Headers({
     "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-    "Access-Control-Allow-Headers": "Authorization, Content-Type",
+    "Access-Control-Allow-Headers": "Content-Type",
     "Access-Control-Max-Age": "86400",
     "Vary": "Origin",
   });
@@ -57,26 +59,37 @@ export default {
     const url = new URL(request.url);
     if (url.pathname.startsWith("/api/ai/")) {
       if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: corsHeaders(request) });
-      if (!isAllowedOrigin(request.headers.get("Origin") || "") && request.headers.has("Origin")) {
-        return jsonResponse(request, { error: "Origin not allowed" }, 403);
-      }
       if (!env.AI_ACCESS_TOKEN || env.AI_ACCESS_TOKEN.length < 32) return unauthorized(request, 503);
-      if (!authorized(request, env)) return unauthorized(request);
 
       const queueId = env.AI_QUEUE.idFromName("hansearch-global");
       const queue = env.AI_QUEUE.get(queueId);
       let targetPath;
+      let isAgentRequest = false;
       if (url.pathname === "/api/ai/jobs" && request.method === "POST") {
+        if (!isAllowedOrigin(request.headers.get("Origin") || "")) {
+          return jsonResponse(request, { error: "Origin not allowed" }, 403);
+        }
         targetPath = "/enqueue";
       } else if (url.pathname === "/api/ai/agent/next" && request.method === "GET") {
+        isAgentRequest = true;
         targetPath = "/next";
       } else {
         const jobMatch = url.pathname.match(/^\/api\/ai\/jobs\/([\w-]+)$/);
         const completeMatch = url.pathname.match(/^\/api\/ai\/agent\/complete\/([\w-]+)$/);
-        if (jobMatch && request.method === "GET") targetPath = `/jobs/${jobMatch[1]}`;
-        else if (completeMatch && request.method === "POST") targetPath = `/complete/${completeMatch[1]}`;
+        if (jobMatch && request.method === "GET") {
+          if (!isAllowedOrigin(request.headers.get("Origin") || "")) {
+            return jsonResponse(request, { error: "Origin not allowed" }, 403);
+          }
+          targetPath = `/jobs/${jobMatch[1]}`;
+        }
+        else if (completeMatch && request.method === "POST") {
+          isAgentRequest = true;
+          targetPath = `/complete/${completeMatch[1]}`;
+        }
         else return jsonResponse(request, { error: "Not found" }, 404);
       }
+
+      if (isAgentRequest && !authorized(request, env)) return unauthorized(request);
 
       const forwarded = new Request(`https://ai-queue.internal${targetPath}`, request);
       return withCors(request, await queue.fetch(forwarded));
@@ -103,9 +116,26 @@ export class AIQueue {
       const activeJobs = [...existing.values()].filter((job) => now - job.createdAt < JOB_TTL_MS);
       if (activeJobs.length >= 30) return Response.json({ error: "AI 검색 요청이 많습니다. 잠시 후 다시 시도해 주세요." }, { status: 429 });
 
+      const clientIp = request.headers.get("CF-Connecting-IP") || "unknown";
+      const ipDigest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(clientIp));
+      const ipHash = [...new Uint8Array(ipDigest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+      const rateKey = `rate:${ipHash}`;
+      const rate = await this.state.storage.get(rateKey);
+      const currentRate = rate && now < rate.resetAt ? rate : { count: 0, resetAt: now + RATE_LIMIT_WINDOW_MS };
+      if (currentRate.count >= MAX_JOBS_PER_IP) {
+        return Response.json(
+          { error: "AI 검색 요청이 잠시 많습니다. 10분 후 다시 시도해 주세요." },
+          { status: 429, headers: { "Retry-After": String(Math.ceil((currentRate.resetAt - now) / 1000)) } },
+        );
+      }
+      currentRate.count += 1;
+      await this.state.storage.put(rateKey, currentRate);
+
       const job = { id: crypto.randomUUID(), query, status: "pending", createdAt: now };
       await this.state.storage.put(`job:${job.id}`, job);
-      await this.state.storage.setAlarm(now + JOB_TTL_MS);
+      const existingAlarm = await this.state.storage.getAlarm();
+      const nextAlarm = Math.min(now + JOB_TTL_MS, currentRate.resetAt, existingAlarm ?? Infinity);
+      await this.state.storage.setAlarm(nextAlarm);
       return Response.json({ id: job.id, status: job.status }, { status: 202 });
     }
 
@@ -151,12 +181,18 @@ export class AIQueue {
   async alarm() {
     const now = Date.now();
     const entries = await this.state.storage.list({ prefix: "job:" });
+    const rateEntries = await this.state.storage.list({ prefix: "rate:" });
     let nextExpiry = Infinity;
     for (const [key, job] of entries) {
       const expiresAt = job.createdAt + JOB_TTL_MS;
       if (expiresAt <= now) await this.state.storage.delete(key);
       else nextExpiry = Math.min(nextExpiry, expiresAt);
     }
+    for (const [key, rate] of rateEntries) {
+      if (rate.resetAt <= now) await this.state.storage.delete(key);
+      else nextExpiry = Math.min(nextExpiry, rate.resetAt);
+    }
     if (Number.isFinite(nextExpiry)) await this.state.storage.setAlarm(nextExpiry);
   }
 }
+
