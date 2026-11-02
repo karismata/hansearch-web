@@ -29,7 +29,7 @@ import { SettingsModal } from './components/SettingsModal';
 import { HelpModal } from './components/HelpModal';
 import { ImageLightbox } from './components/ImageLightbox';
 import { AlertTriangle, Plus, SearchX, Loader2 } from 'lucide-react';
-import { clearStoredAiToken, runAISearch, type AISearchResult } from './lib/localAi';
+import { clearStoredAiToken, runAISearch, type AISearchResult, type AISearchStatus } from './lib/localAi';
 
 
 
@@ -57,6 +57,8 @@ export function App() {
   const [sortOption, setSortOption] = useState<SortOption>('latest');
   const [showOnlyFavorites, setShowOnlyFavorites] = useState<boolean>(false);
   const [isAiSearching, setIsAiSearching] = useState(false);
+  const [aiSearchStatus, setAiSearchStatus] = useState<AISearchStatus>('pending');
+  const [aiSearchElapsedSeconds, setAiSearchElapsedSeconds] = useState(0);
   const [isAiSearchMode, setIsAiSearchMode] = useState(false);
   const [aiSearchResult, setAiSearchResult] = useState<AISearchResult | null>(null);
   const [aiSearchError, setAiSearchError] = useState<string | null>(null);
@@ -100,6 +102,15 @@ export function App() {
     clearStoredAiToken();
   }, []);
 
+  useEffect(() => {
+    if (!isAiSearching) return;
+    const startedAt = Date.now();
+    const updateElapsed = () => setAiSearchElapsedSeconds(Math.floor((Date.now() - startedAt) / 1000));
+    updateElapsed();
+    const timer = window.setInterval(updateElapsed, 1000);
+    return () => window.clearInterval(timer);
+  }, [isAiSearching]);
+
   // Favorites Management
   const handleToggleFavorite = useCallback((id: number) => {
     setFavorites((prev) => {
@@ -137,9 +148,11 @@ export function App() {
     setIsAiSearchMode(true);
     setAiSearchResult(null);
     setAiSearchError(null);
+    setAiSearchStatus('pending');
+    setAiSearchElapsedSeconds(0);
     setIsAiSearching(true);
     try {
-      setAiSearchResult(await runAISearch(query));
+      setAiSearchResult(await runAISearch(query, setAiSearchStatus));
     } catch (error: any) {
       setAiSearchError(error?.message || 'AI 검색에 실패했습니다.');
       setIsAiSearchMode(false);
@@ -400,8 +413,11 @@ export function App() {
             <div className="mb-3 p-4 bg-violet-50 border border-violet-200 rounded-xl flex items-center gap-3 text-violet-800">
               <Loader2 size={18} className="animate-spin shrink-0" />
               <div>
-                <p className="text-sm font-semibold">맥미니 AI가 관련 자료를 찾고 있습니다...</p>
-                <p className="text-xs text-violet-600 mt-0.5">자료 검색과 답변 생성은 맥미니에서 처리됩니다.</p>
+                <p className="text-sm font-semibold">
+                  {aiSearchStatus === 'pending' ? '맥미니 연결 대기 중' : '맥미니 AI가 자료를 분석 중'}
+                  <span className="ml-2 text-xs font-medium text-violet-600">{aiSearchElapsedSeconds}초</span>
+                </p>
+                <p className="text-xs text-violet-600 mt-0.5">첫 검색은 모델을 불러오느라 더 걸릴 수 있습니다. Mac 터미널에 검색 요청 로그가 나타나면 처리 중입니다.</p>
               </div>
             </div>
           )}
