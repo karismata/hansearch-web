@@ -8,8 +8,6 @@ interface SettingsModalProps {
   onClose: () => void;
   config: SupabaseConfig;
   onSaveConfig: (newConfig: SupabaseConfig) => void;
-  aiAccessToken: string;
-  onSaveAiAccessToken: (token: string) => void;
 }
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({
@@ -17,8 +15,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onClose,
   config,
   onSaveConfig,
-  aiAccessToken,
-  onSaveAiAccessToken,
 }) => {
   const [formData, setFormData] = useState<SupabaseConfig>(() => ({
     url: config.url || DEFAULT_SUPABASE_URL,
@@ -28,7 +24,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   }));
   const [isTesting, setIsTesting] = useState(false);
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
-  const [aiToken, setAiToken] = useState(aiAccessToken);
 
   useEffect(() => {
     setFormData({
@@ -38,11 +33,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       storageBucket: config.storageBucket || DEFAULT_STORAGE_BUCKET,
     });
   }, [config, isOpen]);
-
-  useEffect(() => {
-    setAiToken(aiAccessToken);
-  }, [aiAccessToken, isOpen]);
-
 
   if (!isOpen) return null;
 
@@ -67,7 +57,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
     onSaveConfig(formData);
-    onSaveAiAccessToken(aiToken);
     onClose();
   };
 
@@ -102,7 +91,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             <Info size={16} className="shrink-0 mt-0.5" />
             <div>
               <p className="font-semibold mb-0.5">안내</p>
-              <p>Supabase 설정과 AI 연결 키는 브라우저에 저장됩니다. AI 검색 시 연결 키와 검색어가 Cloudflare Worker를 거쳐 맥미니로 전달됩니다.</p>
+              <p>Supabase 연결 설정은 이 브라우저에 저장됩니다. AI 검색은 Cloudflare를 통해 맥미니에 전달되며, 브라우저별 연결 키 입력은 필요하지 않습니다.</p>
             </div>
           </div>
 
@@ -171,26 +160,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             </div>
           </div>
 
-          <div className="pt-3 border-t border-slate-100 space-y-2">
-            <div>
-              <p className="text-xs font-bold text-slate-700">AI 검색 연결</p>
-              <p className="text-[11px] text-slate-500 mt-0.5">
-                Cloudflare와 맥미니에 등록한 동일한 연결 키를 입력하세요.
-              </p>
-            </div>
-            <input
-              type="password"
-              autoComplete="off"
-              placeholder="AI 검색 연결 키"
-              value={aiToken}
-              onChange={(event) => setAiToken(event.target.value)}
-              className="w-full px-3 py-2 text-xs font-mono bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-            <p className="text-[11px] text-slate-400">
-              이 키는 현재 브라우저에 저장되며 AI 검색 요청을 보낼 때 사용됩니다.
-            </p>
-          </div>
-
           {/* Test connection result */}
           {testResult && (
             <div
@@ -242,3 +211,4 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     </div>
   );
 };
+
