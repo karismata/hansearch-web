@@ -118,7 +118,7 @@ def embed_texts(texts: list[str]) -> list[list[float]]:
     result = request_json(
         f"{OLLAMA_URL}/api/embed",
         method="POST",
-        payload={"model": EMBED_MODEL, "input": texts},
+        payload={"model": EMBED_MODEL, "input": texts, "keep_alive": "10m"},
         timeout=300,
     )
     vectors = result.get("embeddings") if isinstance(result, dict) else None
@@ -204,8 +204,8 @@ def cosine_similarity(left: list[float], right: list[float]) -> float:
 def generate_summary(query: str, results: list[dict[str, Any]]) -> str:
     sources = [
         {"id": item.get("id"), "title": item.get("키워드2", ""), "category": item.get("키워드", ""),
-         "content": str(item.get("내용") or "")[:1800]}
-        for item in results[:5]
+         "content": str(item.get("내용") or "")[:1200]}
+        for item in results[:4]
     ]
     response = request_json(
         f"{OLLAMA_URL}/api/chat",
@@ -213,11 +213,12 @@ def generate_summary(query: str, results: list[dict[str, Any]]) -> str:
         payload={
             "model": CHAT_MODEL,
             "stream": False,
+            "keep_alive": "10m",
             "messages": [
                 {"role": "system", "content": "너는 한서치 자료를 안내하는 도우미다. 제공된 자료에 근거해 한국어로 간결하게 답하라. 자료에 없는 사실은 추측하지 말고, 찾을 수 없으면 그렇게 말하라. 답변에 참조한 자료 ID를 [자료 ID: 숫자] 형식으로 표시하라."},
                 {"role": "user", "content": f"질문: {query}\n\n관련 자료:\n{json.dumps(sources, ensure_ascii=False)}"},
             ],
-            "options": {"temperature": 0.2},
+            "options": {"temperature": 0.2, "num_predict": 256},
         },
         timeout=300,
     )
@@ -360,3 +361,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
