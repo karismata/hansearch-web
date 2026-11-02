@@ -26,13 +26,18 @@ export interface AISearchResult {
   synced_count: number;
 }
 
+export type AISearchStatus = 'pending' | 'processing';
+
 async function readResponse(response: Response): Promise<any> {
   const data = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(data.error || `AI 서버 오류 (${response.status})`);
   return data;
 }
 
-export async function runAISearch(query: string): Promise<AISearchResult> {
+export async function runAISearch(
+  query: string,
+  onStatus?: (status: AISearchStatus) => void,
+): Promise<AISearchResult> {
   const relayUrl = getRelayUrl();
   const createResponse = await fetch(`${relayUrl}/api/ai/jobs`, {
     method: 'POST',
@@ -40,12 +45,18 @@ export async function runAISearch(query: string): Promise<AISearchResult> {
     body: JSON.stringify({ query }),
   });
   const job = await readResponse(createResponse);
-  const deadline = Date.now() + 4 * 60 * 1000;
+  let lastStatus: AISearchStatus = 'pending';
+  onStatus?.(lastStatus);
+  const deadline = Date.now() + 6 * 60 * 1000;
 
   while (Date.now() < deadline) {
     await new Promise((resolve) => window.setTimeout(resolve, 1500));
     const response = await fetch(`${relayUrl}/api/ai/jobs/${encodeURIComponent(job.id)}`);
     const status = await readResponse(response);
+    if ((status.status === 'pending' || status.status === 'processing') && status.status !== lastStatus) {
+      lastStatus = status.status;
+      onStatus?.(lastStatus);
+    }
     if (status.status === 'complete' && status.result) return status.result as AISearchResult;
     if (status.status === 'error') throw new Error(status.error || 'AI 검색 처리에 실패했습니다.');
   }
