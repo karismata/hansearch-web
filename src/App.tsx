@@ -28,6 +28,8 @@ import { DataModal } from './components/DataModal';
 import { SettingsModal } from './components/SettingsModal';
 import { HelpModal } from './components/HelpModal';
 import { ImageLightbox } from './components/ImageLightbox';
+import { AIAnswerPanel } from './components/AIAnswerPanel';
+import { fetchSavedAiAnswer, saveAiAnswer } from './lib/savedAiAnswers';
 import { AlertTriangle, Plus, SearchX, Loader2 } from 'lucide-react';
 import { clearStoredAiToken, runAISearch, type AISearchResult, type AISearchStatus } from './lib/localAi';
 
@@ -152,13 +154,29 @@ export function App() {
     setAiSearchElapsedSeconds(0);
     setIsAiSearching(true);
     try {
-      setAiSearchResult(await runAISearch(query, setAiSearchStatus));
+      const saved = await fetchSavedAiAnswer(query, config);
+      if (saved) {
+        setItems((prev) => [saved, ...prev.filter((item) => item.id !== saved.id)]);
+        setAiSearchResult({ query, summary: saved.내용, saved_answer: true,
+          results: saved.id ? [{ id: saved.id, score: 1 }] : [], synced_count: items.length });
+      } else {
+        setAiSearchResult(await runAISearch(query, setAiSearchStatus));
+      }
     } catch (error: any) {
       setAiSearchError(error?.message || 'AI 검색에 실패했습니다.');
       setIsAiSearchMode(false);
     } finally {
       setIsAiSearching(false);
     }
+  };
+
+  const handleSaveAiCorrection = async (question: string, answer: string) => {
+    const saved = await saveAiAnswer(question, answer, config);
+    setItems((prev) => [saved, ...prev.filter((item) => item.id !== saved.id)]);
+    setSearchInput(question.trim());
+    setActiveSearch(question.trim());
+    setAiSearchResult({ query: question.trim(), summary: saved.내용, saved_answer: true,
+      results: saved.id ? [{ id: saved.id, score: 1 }] : [], synced_count: items.length });
   };
 
   // Quick Tag Click
@@ -414,21 +432,16 @@ export function App() {
               <Loader2 size={18} className="animate-spin shrink-0" />
               <div>
                 <p className="text-sm font-semibold">
-                  {aiSearchStatus === 'pending' ? '맥미니 연결 대기 중' : '맥미니 AI가 자료를 분석 중'}
+                  {aiSearchStatus === 'pending' ? '한주AI 연결 대기 중' : '한주AI가 자료를 분석 중'}
                   <span className="ml-2 text-xs font-medium text-violet-600">{aiSearchElapsedSeconds}초</span>
                 </p>
-                <p className="text-xs text-violet-600 mt-0.5">첫 검색은 모델을 불러오느라 더 걸릴 수 있습니다. Mac 터미널에 검색 요청 로그가 나타나면 처리 중입니다.</p>
+                <p className="text-xs text-violet-600 mt-0.5">첫 검색은 준비하는 데 더 걸릴 수 있습니다. 완료되면 답변이 표시됩니다.</p>
               </div>
             </div>
           )}
 
           {isAiSearchMode && aiSearchResult && (
-            <div className="mb-3 p-4 bg-violet-50 border border-violet-200 rounded-xl">
-              <p className="text-xs font-bold text-violet-800 mb-1">AI 답변</p>
-              <p className="text-sm text-slate-700 whitespace-pre-wrap">
-                {aiSearchResult.summary?.trim() || '관련 자료는 찾았지만 AI 답변이 비어 있습니다. 맥미니의 AI 응답 상태를 확인해 주세요.'}
-              </p>
-            </div>
+            <AIAnswerPanel key={aiSearchResult.query} result={aiSearchResult} onSave={handleSaveAiCorrection} />
           )}
 
           {/* Loading State */}
