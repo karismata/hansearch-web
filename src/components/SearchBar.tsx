@@ -1,5 +1,5 @@
 import React, { useRef, useEffect } from 'react';
-import { Search, X, Filter, ArrowUpDown, Star } from 'lucide-react';
+import { Search, X, Filter, ArrowUpDown, Star, Sparkles, Loader2 } from 'lucide-react';
 import type { SortOption } from '../types';
 
 
@@ -7,6 +7,8 @@ interface SearchBarProps {
   query: string;
   onChangeQuery: (q: string) => void;
   onSearchSubmit: () => void;
+  onAiSearchSubmit: () => void;
+  isAiSearching: boolean;
   selectedCategory: string;
   onChangeCategory: (cat: string) => void;
   categories: { name: string; count: number }[];
@@ -21,6 +23,8 @@ export const SearchBar: React.FC<SearchBarProps> = ({
   query,
   onChangeQuery,
   onSearchSubmit,
+  onAiSearchSubmit,
+  isAiSearching,
   selectedCategory,
   onChangeCategory,
   categories,
@@ -89,13 +93,24 @@ export const SearchBar: React.FC<SearchBarProps> = ({
         </div>
 
         {/* Search Action Button */}
-        <button
-          onClick={onSearchSubmit}
-          className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white text-base sm:text-sm font-semibold rounded-xl transition-all shadow-sm flex items-center gap-1.5 shrink-0"
-        >
-          <Search size={16} />
-          <span>검색</span>
-        </button>
+        <div className="flex items-center gap-1.5 shrink-0">
+          <button
+            onClick={onSearchSubmit}
+            className="px-4 sm:px-6 py-2.5 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white text-base sm:text-sm font-semibold rounded-xl transition-all shadow-sm flex items-center gap-1.5"
+          >
+            <Search size={16} />
+            <span>검색</span>
+          </button>
+          <button
+            onClick={onAiSearchSubmit}
+            disabled={isAiSearching || !query.trim()}
+            title="맥미니의 로컬 AI로 의미 검색"
+            className="px-3 sm:px-4 py-2.5 bg-violet-600 hover:bg-violet-700 active:bg-violet-800 text-white text-base sm:text-sm font-semibold rounded-xl transition-all shadow-sm flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isAiSearching ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
+            <span>AI 검색</span>
+          </button>
+        </div>
       </div>
 
       {/* Filter and Sort Row */}

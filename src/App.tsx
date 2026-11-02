@@ -31,6 +31,7 @@ import { SettingsModal } from './components/SettingsModal';
 import { HelpModal } from './components/HelpModal';
 import { ImageLightbox } from './components/ImageLightbox';
 import { AlertTriangle, Plus, SearchX, Loader2 } from 'lucide-react';
+import { getStoredAiToken, runAISearch, saveStoredAiToken, type AISearchResult } from './lib/localAi';
 
 
 
@@ -57,6 +58,11 @@ export function App() {
   const [selectedCategory, setSelectedCategory] = useState<string>('');
   const [sortOption, setSortOption] = useState<SortOption>('latest');
   const [showOnlyFavorites, setShowOnlyFavorites] = useState<boolean>(false);
+  const [aiAccessToken, setAiAccessToken] = useState(getStoredAiToken);
+  const [isAiSearching, setIsAiSearching] = useState(false);
+  const [isAiSearchMode, setIsAiSearchMode] = useState(false);
+  const [aiSearchResult, setAiSearchResult] = useState<AISearchResult | null>(null);
+  const [aiSearchError, setAiSearchError] = useState<string | null>(null);
 
   // Modal States
   const [isDataModalOpen, setIsDataModalOpen] = useState(false);
@@ -117,11 +123,46 @@ export function App() {
 
   // Search Submit
   const handleSearchSubmit = () => {
+    setIsAiSearchMode(false);
+    setAiSearchResult(null);
+    setAiSearchError(null);
     setActiveSearch(searchInput.trim());
+  };
+
+  const handleAiSearchSubmit = async () => {
+    const query = searchInput.trim();
+    if (!query) return;
+    if (!aiAccessToken) {
+      setAiSearchError('설정에서 AI 검색 연결 키를 먼저 입력해 주세요.');
+      setIsSettingsModalOpen(true);
+      return;
+    }
+
+    setActiveSearch(query);
+    setIsAiSearchMode(true);
+    setAiSearchResult(null);
+    setAiSearchError(null);
+    setIsAiSearching(true);
+    try {
+      setAiSearchResult(await runAISearch(query, aiAccessToken));
+    } catch (error: any) {
+      setAiSearchError(error?.message || 'AI 검색에 실패했습니다.');
+      setIsAiSearchMode(false);
+    } finally {
+      setIsAiSearching(false);
+    }
+  };
+
+  const handleSaveAiAccessToken = (token: string) => {
+    saveStoredAiToken(token);
+    setAiAccessToken(token.trim());
+    setAiSearchError(null);
   };
 
   // Quick Tag Click
   const handleSelectTag = (tag: string) => {
+    setIsAiSearchMode(false);
+    setAiSearchResult(null);
     setSearchInput(tag);
     setActiveSearch(tag);
   };
@@ -174,7 +215,7 @@ export function App() {
 
 
         // Keyword Search (키워드2 and 내용)
-        if (searchTerms.length > 0) {
+        if (searchTerms.length > 0 && !isAiSearchMode) {
           const title = (item.키워드2 || '').toLowerCase();
           const content = (item.내용 || '').toLowerCase();
           const keyword = (item.키워드 || '').toLowerCase();
@@ -201,7 +242,21 @@ export function App() {
         }
         return 0;
       });
-  }, [items, activeSearch, selectedCategory, showOnlyFavorites, favorites, sortOption]);
+  }, [items, activeSearch, selectedCategory, showOnlyFavorites, favorites, sortOption, isAiSearchMode]);
+
+  const visibleItems = useMemo(() => {
+    if (!isAiSearchMode) return filteredItems;
+    if (!aiSearchResult) return [];
+    const byId = new Map(filteredItems.map((item) => [Number(item.id), item]));
+    const seen = new Set<number>();
+    return aiSearchResult.results
+      .map((result) => byId.get(Number(result.id)))
+      .filter((item): item is InfoItem => {
+        if (!item?.id || seen.has(item.id)) return false;
+        seen.add(item.id);
+        return true;
+      });
+  }, [filteredItems, aiSearchResult, isAiSearchMode]);
 
   // CRUD Actions
   const handleSaveItem = async (itemData: Omit<InfoItem, 'id' | 'created_at'>) => {
@@ -247,7 +302,7 @@ export function App() {
       <Header
         isConnected={isConnected}
         totalCount={items.length}
-        filteredCount={filteredItems.length}
+        filteredCount={visibleItems.length}
         isLoading={isLoading}
         onRefresh={() => loadData()}
         onOpenAddModal={() => {
@@ -268,8 +323,13 @@ export function App() {
             onChangeQuery={(q) => {
               setSearchInput(q);
               if (q === '') setActiveSearch('');
+              setIsAiSearchMode(false);
+              setAiSearchResult(null);
+              setAiSearchError(null);
             }}
             onSearchSubmit={handleSearchSubmit}
+            onAiSearchSubmit={handleAiSearchSubmit}
+            isAiSearching={isAiSearching}
             selectedCategory={selectedCategory}
             onChangeCategory={setSelectedCategory}
             categories={categoriesWithCount}
@@ -316,10 +376,10 @@ export function App() {
           <div className="flex items-center justify-between mb-3 px-1">
             <div className="flex items-center gap-2">
               <h2 className="text-sm font-bold text-slate-800 flex items-center gap-1.5">
-                <span className="text-blue-600">🔍</span> 검색 결과
+                <span className="text-blue-600">{isAiSearchMode ? '✨' : '🔍'}</span> {isAiSearchMode ? 'AI 검색 결과' : '검색 결과'}
               </h2>
               <span className="text-xs font-semibold px-2 py-0.5 bg-slate-200/70 text-slate-700 rounded-full">
-                {filteredItems.length}건
+                {visibleItems.length}건
               </span>
             </div>
 
@@ -342,6 +402,29 @@ export function App() {
             )}
           </div>
 
+          {aiSearchError && (
+            <div className="mb-3 p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-800">
+              {aiSearchError}
+            </div>
+          )}
+
+          {isAiSearching && (
+            <div className="mb-3 p-4 bg-violet-50 border border-violet-200 rounded-xl flex items-center gap-3 text-violet-800">
+              <Loader2 size={18} className="animate-spin shrink-0" />
+              <div>
+                <p className="text-sm font-semibold">맥미니 AI가 관련 자료를 찾고 있습니다...</p>
+                <p className="text-xs text-violet-600 mt-0.5">자료 검색과 답변 생성은 맥미니에서 처리됩니다.</p>
+              </div>
+            </div>
+          )}
+
+          {isAiSearchMode && aiSearchResult?.summary && (
+            <div className="mb-3 p-4 bg-violet-50 border border-violet-200 rounded-xl">
+              <p className="text-xs font-bold text-violet-800 mb-1">AI 답변</p>
+              <p className="text-sm text-slate-700 whitespace-pre-wrap">{aiSearchResult.summary}</p>
+            </div>
+          )}
+
           {/* Loading State */}
           {isLoading && (
             <div className="flex flex-col items-center justify-center py-20 bg-white rounded-2xl border border-slate-200 shadow-xs">
@@ -352,27 +435,31 @@ export function App() {
           )}
 
           {/* Empty State */}
-          {!isLoading && filteredItems.length === 0 && (
+          {!isLoading && !isAiSearching && visibleItems.length === 0 && (
             <div className="flex flex-col items-center justify-center py-16 px-4 bg-white rounded-2xl border border-slate-200 shadow-xs text-center">
               <div className="p-4 bg-slate-50 text-slate-400 rounded-2xl mb-3">
                 <SearchX size={40} />
               </div>
               <h3 className="text-base font-bold text-slate-800 mb-1">
-                {activeSearch ? `"${activeSearch}" 검색 결과가 없습니다` : '등록된 데이터가 없습니다'}
+                {isAiSearchMode ? 'AI 관련 자료를 찾지 못했습니다' : activeSearch ? `"${activeSearch}" 검색 결과가 없습니다` : '등록된 데이터가 없습니다'}
               </h3>
               <p className="text-xs text-slate-500 max-w-sm mb-4">
-                {activeSearch
+                {isAiSearchMode
+                  ? '다른 표현으로 AI 검색을 다시 시도하거나 일반 검색을 이용해 보세요.'
+                  : activeSearch
                   ? '다른 키워드로 검색하거나 카테고리 필터를 변경해 보세요.'
                   : '상단의 [데이터 추가] 버튼을 눌러 새 가이드를 등록해 보세요.'}
               </p>
 
               <div className="flex items-center gap-2">
-                {activeSearch ? (
+                {activeSearch || isAiSearchMode ? (
                   <button
                     onClick={() => {
                       setSearchInput('');
                       setActiveSearch('');
                       setSelectedCategory('');
+                      setIsAiSearchMode(false);
+                      setAiSearchResult(null);
                     }}
                     className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-xl transition-colors"
                   >
@@ -395,9 +482,9 @@ export function App() {
           )}
 
           {/* Cards Grid / List */}
-          {!isLoading && filteredItems.length > 0 && (
+          {!isLoading && visibleItems.length > 0 && (
             <div className="grid grid-cols-1 gap-3.5">
-              {filteredItems.map((item) => (
+              {visibleItems.map((item) => (
                 <ItemCard
                   key={item.id}
                   item={item}
@@ -434,6 +521,8 @@ export function App() {
         onClose={() => setIsSettingsModalOpen(false)}
         config={config}
         onSaveConfig={handleSaveConfig}
+        aiAccessToken={aiAccessToken}
+        onSaveAiAccessToken={handleSaveAiAccessToken}
       />
 
       <HelpModal
