@@ -15,7 +15,7 @@ interface ItemCardProps {
   onOpenImage: (images: string[], index: number) => void;
 }
 
-export const ItemCard: React.FC<ItemCardProps> = ({
+const ItemCardComponent: React.FC<ItemCardProps> = ({
   item,
   searchQuery,
   isFavorite,
@@ -38,7 +38,7 @@ export const ItemCard: React.FC<ItemCardProps> = ({
   };
 
   return (
-    <article className="bg-white rounded-xl border border-slate-200/90 shadow-xs hover:shadow-md transition-all duration-200 p-5 group flex flex-col justify-between">
+    <article className="search-result-card bg-white rounded-xl border border-slate-200/90 shadow-xs hover:shadow-md transition-all duration-200 p-5 group flex flex-col justify-between">
       <div>
         {/* Header: Favorite star, Category Badges, Title */}
         <div className="flex items-start justify-between gap-3 mb-2.5">
@@ -172,3 +172,6 @@ export const ItemCard: React.FC<ItemCardProps> = ({
     </article>
   );
 };
+
+export const ItemCard = React.memo(ItemCardComponent);
+
