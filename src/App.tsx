@@ -21,7 +21,8 @@ import {
 } from './utils/helpers';
 
 import { Header } from './components/Header';
-import { SearchBar } from './components/SearchBar';
+import { SearchBar, SearchFilters } from './components/SearchBar';
+import { ScrollToTop } from './components/ScrollToTop';
 import { QuickTags } from './components/QuickTags';
 import { ItemCard } from './components/ItemCard';
 import { DataModal } from './components/DataModal';
@@ -330,25 +331,29 @@ export function App() {
         }}
         onOpenSettingsModal={() => setIsSettingsModalOpen(true)}
         onOpenHelpModal={() => setIsHelpModalOpen(true)}
-      />
+      >
+        <SearchBar
+          query={searchInput}
+          onChangeQuery={(q) => {
+            setSearchInput(q);
+            if (q === '') setActiveSearch('');
+            setIsAiSearchMode(false);
+            setAiSearchResult(null);
+            setAiSearchError(null);
+          }}
+          onSearchSubmit={handleSearchSubmit}
+          onAiSearchSubmit={handleAiSearchSubmit}
+          isAiSearching={isAiSearching}
+        />
+      </Header>
+      <ScrollToTop />
 
 
       {/* Main Container */}
       <main className="max-w-7xl w-full mx-auto px-4 sm:px-6 py-5 flex-1 flex flex-col space-y-4">
         {/* Search & Filter Card */}
         <section className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-xs space-y-3">
-          <SearchBar
-            query={searchInput}
-            onChangeQuery={(q) => {
-              setSearchInput(q);
-              if (q === '') setActiveSearch('');
-              setIsAiSearchMode(false);
-              setAiSearchResult(null);
-              setAiSearchError(null);
-            }}
-            onSearchSubmit={handleSearchSubmit}
-            onAiSearchSubmit={handleAiSearchSubmit}
-            isAiSearching={isAiSearching}
+          <SearchFilters
             selectedCategory={selectedCategory}
             onChangeCategory={setSelectedCategory}
             categories={categoriesWithCount}
@@ -356,7 +361,6 @@ export function App() {
             onChangeSort={setSortOption}
             showOnlyFavorites={showOnlyFavorites}
             onToggleFavorites={() => setShowOnlyFavorites(!showOnlyFavorites)}
-            favoriteCount={favorites.length}
           />
 
           {/* Quick Search Tag Chips */}
@@ -397,28 +401,8 @@ export function App() {
               <h2 className="text-sm font-bold text-slate-800 flex items-center gap-1.5">
                 <span className="text-blue-600">{isAiSearchMode ? '✨' : '🔍'}</span> {isAiSearchMode ? 'AI 검색 결과' : '검색 결과'}
               </h2>
-              <span className="text-xs font-semibold px-2 py-0.5 bg-slate-200/70 text-slate-700 rounded-full">
-                {visibleItems.length}건
-              </span>
             </div>
 
-            {activeSearch && (
-              <div className="flex items-center gap-1.5 text-xs text-slate-500">
-                <span>검색어:</span>
-                <span className="px-2 py-0.5 bg-yellow-100 text-yellow-800 font-bold rounded-md border border-yellow-200">
-                  "{activeSearch}"
-                </span>
-                <button
-                  onClick={() => {
-                    setSearchInput('');
-                    setActiveSearch('');
-                  }}
-                  className="text-slate-400 hover:text-slate-700 underline ml-1"
-                >
-                  초기화
-                </button>
-              </div>
-            )}
           </div>
 
           {aiSearchError && (
