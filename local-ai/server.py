@@ -28,6 +28,7 @@ DEFAULT_SUPABASE_KEY = "sb_publishable_N_NBrRMNfUDwfCodR-nZ6g_KCFEZiw1"
 SUPABASE_URL = os.getenv("SUPABASE_URL", DEFAULT_SUPABASE_URL).rstrip("/")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY", DEFAULT_SUPABASE_KEY)
 SUPABASE_TABLE = os.getenv("SUPABASE_TABLE", "info")
+SUPABASE_ACCOUNT_MODE = os.getenv("SUPABASE_ACCOUNT_MODE", "0") == "1"
 OLLAMA_URL = os.getenv("OLLAMA_URL", "http://127.0.0.1:11434").rstrip("/")
 CHAT_MODEL = os.getenv("CHAT_MODEL", "gemma4:e4b")
 EMBED_MODEL = os.getenv("EMBED_MODEL", "qwen3-embedding:0.6b")
@@ -87,16 +88,25 @@ def fetch_all_items() -> list[dict[str, Any]]:
     endpoint = f"{SUPABASE_URL}/rest/v1/{quote(SUPABASE_TABLE, safe='')}"
     offset = 0
     while True:
-        query = urlencode({"select": select, "order": "id.asc"})
-        page = request_json(
-            f"{endpoint}?{query}",
-            headers={
-                "apikey": SUPABASE_KEY,
-                "Authorization": f"Bearer {SUPABASE_KEY}",
-                "Range-Unit": "items",
-                "Range": f"{offset}-{offset + PAGE_SIZE - 1}",
-            },
-        )
+        if SUPABASE_ACCOUNT_MODE:
+            if len(AI_ACCESS_TOKEN) < 32:
+                raise RuntimeError("로그인 적용 후 동기화에는 AI_ACCESS_TOKEN이 필요합니다.")
+            page = request_json(
+                f"{SUPABASE_URL}/rest/v1/rpc/hansearch_ai_snapshot", method="POST",
+                headers={"apikey": SUPABASE_KEY},
+                payload={"p_token": AI_ACCESS_TOKEN, "p_offset": offset, "p_limit": PAGE_SIZE},
+            )
+        else:
+            query = urlencode({"select": select, "order": "id.asc"})
+            page = request_json(
+                f"{endpoint}?{query}",
+                headers={
+                    "apikey": SUPABASE_KEY,
+                    "Authorization": f"Bearer {SUPABASE_KEY}",
+                    "Range-Unit": "items",
+                    "Range": f"{offset}-{offset + PAGE_SIZE - 1}",
+                },
+            )
         if not isinstance(page, list):
             raise RuntimeError("Supabase 응답이 예상한 목록 형식이 아닙니다.")
         rows.extend(page)
@@ -358,10 +368,11 @@ def relay_loop() -> None:
 def main() -> None:
     load_dotenv()
     # Load .env overrides after module constants were initialized.
-    global SUPABASE_URL, SUPABASE_KEY, SUPABASE_TABLE, OLLAMA_URL, CHAT_MODEL, EMBED_MODEL, SYNC_INTERVAL, HOST, PORT, RELAY_URL, AI_ACCESS_TOKEN
+    global SUPABASE_URL, SUPABASE_KEY, SUPABASE_TABLE, SUPABASE_ACCOUNT_MODE, OLLAMA_URL, CHAT_MODEL, EMBED_MODEL, SYNC_INTERVAL, HOST, PORT, RELAY_URL, AI_ACCESS_TOKEN
     SUPABASE_URL = os.getenv("SUPABASE_URL", SUPABASE_URL).rstrip("/")
     SUPABASE_KEY = os.getenv("SUPABASE_KEY", SUPABASE_KEY)
     SUPABASE_TABLE = os.getenv("SUPABASE_TABLE", SUPABASE_TABLE)
+    SUPABASE_ACCOUNT_MODE = os.getenv("SUPABASE_ACCOUNT_MODE", "0") == "1"
     OLLAMA_URL = os.getenv("OLLAMA_URL", OLLAMA_URL).rstrip("/")
     CHAT_MODEL = os.getenv("CHAT_MODEL", CHAT_MODEL)
     EMBED_MODEL = os.getenv("EMBED_MODEL", EMBED_MODEL)
@@ -381,4 +392,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

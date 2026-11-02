@@ -8,6 +8,7 @@ interface SettingsModalProps {
   onClose: () => void;
   config: SupabaseConfig;
   onSaveConfig: (newConfig: SupabaseConfig) => void;
+  locked?: boolean;
 }
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({
@@ -15,6 +16,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onClose,
   config,
   onSaveConfig,
+  locked = false,
 }) => {
   const [formData, setFormData] = useState<SupabaseConfig>(() => ({
     url: config.url || DEFAULT_SUPABASE_URL,
@@ -56,7 +58,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
-    onSaveConfig(formData);
+    if (!locked) onSaveConfig(formData);
     onClose();
   };
 
@@ -92,6 +94,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             <div>
               <p className="font-semibold mb-0.5">안내</p>
               <p>Supabase 연결 설정은 이 브라우저에 저장됩니다. 한주AI 검색은 별도의 연결 키 입력 없이 이용할 수 있습니다.</p>
+              {locked && <p className="mt-1">회원 계정과 연결된 데이터베이스이므로 이 화면에서 접속 정보를 변경할 수 없습니다.</p>}
             </div>
           </div>
 
@@ -103,6 +106,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             </label>
             <input
               type="url"
+              readOnly={locked}
               placeholder="https://xxxxxxxx.supabase.co"
               value={formData.url}
               onChange={(e) => handleChange('url', e.target.value)}
@@ -119,6 +123,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             </label>
             <input
               type="password"
+              readOnly={locked}
               placeholder="eyJhbGciOiJIUzI1NiIsIn..."
               value={formData.anonKey}
               onChange={(e) => handleChange('anonKey', e.target.value)}
@@ -136,6 +141,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               </label>
               <input
                 type="text"
+                readOnly={locked}
                 placeholder="info"
                 value={formData.tableName}
                 onChange={(e) => handleChange('tableName', e.target.value)}
@@ -152,6 +158,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               </label>
               <input
                 type="text"
+                readOnly={locked}
                 placeholder="images"
                 value={formData.storageBucket}
                 onChange={(e) => handleChange('storageBucket', e.target.value)}
@@ -202,7 +209,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 type="submit"
                 className="px-5 py-2 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 active:bg-blue-800 rounded-xl transition-all shadow-sm"
               >
-                저장 및 적용
+                {locked ? '닫기' : '저장 및 적용'}
               </button>
             </div>
           </div>
@@ -211,4 +218,3 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     </div>
   );
 };
-

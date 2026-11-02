@@ -1,4 +1,11 @@
+import { accountClient } from './accounts';
 const AI_TOKEN_STORAGE_KEY = 'hansearch_ai_access_token';
+
+async function memberHeaders(): Promise<Record<string, string>> {
+  const { data: { session }, error } = await accountClient().auth.getSession();
+  if (error || !session) throw new Error('다시 로그인해 주세요.');
+  return { Authorization: `Bearer ${session.access_token}` };
+}
 
 export function clearStoredAiToken(): void {
   try {
@@ -10,12 +17,7 @@ export function clearStoredAiToken(): void {
 
 function getRelayUrl(): string {
   const host = window.location.hostname;
-  const pagesSuffix = '.hansearch-web.pages.dev';
-  if (host === 'hansearch-web.karis830519.workers.dev') return window.location.origin;
-  if (host.endsWith(pagesSuffix)) {
-    const previewName = host.slice(0, -pagesSuffix.length);
-    if (previewName) return `https://${previewName}-hansearch-web.karis830519.workers.dev`;
-  }
+  if (host === 'hansearch-web.karis830519.workers.dev' || host.endsWith('-hansearch-web.karis830519.workers.dev')) return window.location.origin;
   return 'https://hansearch-web.karis830519.workers.dev';
 }
 
@@ -42,7 +44,7 @@ export async function runAISearch(
   const relayUrl = getRelayUrl();
   const createResponse = await fetch(`${relayUrl}/api/ai/jobs`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { ...await memberHeaders(), 'Content-Type': 'application/json' },
     body: JSON.stringify({ query }),
   });
   const job = await readResponse(createResponse);
@@ -52,7 +54,7 @@ export async function runAISearch(
 
   while (Date.now() < deadline) {
     await new Promise((resolve) => window.setTimeout(resolve, 1500));
-    const response = await fetch(`${relayUrl}/api/ai/jobs/${encodeURIComponent(job.id)}`);
+    const response = await fetch(`${relayUrl}/api/ai/jobs/${encodeURIComponent(job.id)}`, { headers: await memberHeaders() });
     const status = await readResponse(response);
     if ((status.status === 'pending' || status.status === 'processing') && status.status !== lastStatus) {
       lastStatus = status.status;
@@ -64,4 +66,3 @@ export async function runAISearch(
 
   throw new Error('AI 검색 시간이 초과됐습니다. 한주AI 연결 상태를 확인해 주세요.');
 }
-
