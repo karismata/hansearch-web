@@ -217,16 +217,27 @@ def generate_summary(query: str, results: list[dict[str, Any]]) -> str:
         payload={
             "model": CHAT_MODEL,
             "stream": False,
+            "think": False,
             "keep_alive": "10m",
             "messages": [
                 {"role": "system", "content": "너는 한서치 자료를 안내하는 도우미다. 제공된 자료에 근거해 한국어로 간결하게 답하라. 자료에 없는 사실은 추측하지 말고, 찾을 수 없으면 그렇게 말하라. 답변에 참조한 자료 ID를 [자료 ID: 숫자] 형식으로 표시하라."},
                 {"role": "user", "content": f"질문: {query}\n\n관련 자료:\n{json.dumps(sources, ensure_ascii=False)}"},
             ],
-            "options": {"temperature": 0.2, "num_predict": 256},
+            "options": {"temperature": 0.2, "num_predict": 512},
         },
         timeout=300,
     )
-    return str(response.get("message", {}).get("content", "")).strip()
+    message = response.get("message") or {}
+    summary = str(message.get("content") or "").strip()
+    if not summary:
+        print(
+            f"[summary] 최종 답변이 비어 있습니다. model={CHAT_MODEL}, "
+            f"done_reason={response.get('done_reason')}, eval_count={response.get('eval_count')}, "
+            f"thinking_chars={len(str(message.get('thinking') or ''))}",
+            flush=True,
+        )
+        return "관련 자료는 찾았지만 AI가 답변 문장을 반환하지 않았습니다. 아래 관련 자료를 확인해 주세요."
+    return summary
 
 
 def search(query: str, limit: int = 8) -> dict[str, Any]:
