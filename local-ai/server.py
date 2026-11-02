@@ -59,7 +59,11 @@ def load_dotenv() -> None:
 def request_json(url: str, *, method: str = "GET", headers: dict[str, str] | None = None,
                  payload: Any = None, timeout: int = 120) -> Any:
     body = None if payload is None else json.dumps(payload, ensure_ascii=False).encode("utf-8")
-    request_headers = {"Accept": "application/json", **(headers or {})}
+    request_headers = {
+        "Accept": "application/json",
+        "User-Agent": "HanSearchLocalAI/0.2",
+        **(headers or {}),
+    }
     if body is not None:
         request_headers["Content-Type"] = "application/json"
     request = Request(url, data=body, headers=request_headers, method=method)
@@ -299,9 +303,13 @@ def relay_loop() -> None:
 
     endpoint = f"{RELAY_URL}/api/ai"
     headers = {"Authorization": f"Bearer {AI_ACCESS_TOKEN}"}
+    connected = False
     while True:
         try:
             job = request_json(f"{endpoint}/agent/next", headers=headers, timeout=20)
+            if not connected:
+                print("[relay] Cloudflare 연결 확인 — AI 검색 요청 대기 중", flush=True)
+                connected = True
             if not job or not job.get("id"):
                 time.sleep(2)
                 continue
@@ -331,6 +339,7 @@ def relay_loop() -> None:
                 )
                 print(f"[relay] 검색 실패: {exc}", flush=True)
         except Exception as exc:
+            connected = False
             print(f"[relay] 연결 오류: {exc}", flush=True)
             time.sleep(5)
 
