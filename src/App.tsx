@@ -422,10 +422,12 @@ export function App() {
             </div>
           )}
 
-          {isAiSearchMode && aiSearchResult?.summary && (
+          {isAiSearchMode && aiSearchResult && (
             <div className="mb-3 p-4 bg-violet-50 border border-violet-200 rounded-xl">
               <p className="text-xs font-bold text-violet-800 mb-1">AI 답변</p>
-              <p className="text-sm text-slate-700 whitespace-pre-wrap">{aiSearchResult.summary}</p>
+              <p className="text-sm text-slate-700 whitespace-pre-wrap">
+                {aiSearchResult.summary?.trim() || '관련 자료는 찾았지만 AI 답변이 비어 있습니다. 맥미니의 AI 응답 상태를 확인해 주세요.'}
+              </p>
             </div>
           )}
 
