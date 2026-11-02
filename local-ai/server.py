@@ -34,6 +34,8 @@ EMBED_MODEL = os.getenv("EMBED_MODEL", "qwen3-embedding:0.6b")
 SYNC_INTERVAL = max(60, int(os.getenv("SYNC_INTERVAL_SECONDS", "300")))
 HOST = os.getenv("HOST", "127.0.0.1")
 PORT = int(os.getenv("PORT", "8765"))
+RELAY_URL = os.getenv("RELAY_URL", "https://hansearch-web.karis830519.workers.dev").rstrip("/")
+AI_ACCESS_TOKEN = os.getenv("AI_ACCESS_TOKEN", "")
 PAGE_SIZE = 1000
 EMBED_BATCH_SIZE = 24
 
@@ -288,10 +290,54 @@ def sync_loop() -> None:
         time.sleep(SYNC_INTERVAL)
 
 
+def relay_loop() -> None:
+    """Pull AI search jobs from Cloudflare; the Mac only makes outbound requests."""
+    if len(AI_ACCESS_TOKEN) < 32:
+        print("[relay] AI_ACCESS_TOKEN 설정 전이라 웹 검색 중계를 대기합니다.", flush=True)
+        return
+
+    endpoint = f"{RELAY_URL}/api/ai"
+    headers = {"Authorization": f"Bearer {AI_ACCESS_TOKEN}"}
+    while True:
+        try:
+            job = request_json(f"{endpoint}/agent/next", headers=headers, timeout=20)
+            if not job or not job.get("id"):
+                time.sleep(2)
+                continue
+
+            job_id = str(job["id"])
+            print(f"[relay] AI 검색 요청 처리: {job_id}", flush=True)
+            try:
+                full_result = search(str(job.get("query", "")))
+                compact_result = {
+                    "query": full_result.get("query", ""),
+                    "summary": full_result.get("summary", ""),
+                    "results": [
+                        {"id": item.get("id"), "score": item.get("score")}
+                        for item in full_result.get("results", [])
+                    ],
+                    "synced_count": full_result.get("synced_count", 0),
+                }
+                request_json(
+                    f"{endpoint}/agent/complete/{job_id}",
+                    method="POST", headers=headers, payload={"result": compact_result},
+                )
+                print(f"[relay] 검색 완료: {job_id}", flush=True)
+            except Exception as exc:
+                request_json(
+                    f"{endpoint}/agent/complete/{job_id}",
+                    method="POST", headers=headers, payload={"error": str(exc)[:400]},
+                )
+                print(f"[relay] 검색 실패: {exc}", flush=True)
+        except Exception as exc:
+            print(f"[relay] 연결 오류: {exc}", flush=True)
+            time.sleep(5)
+
+
 def main() -> None:
     load_dotenv()
     # Load .env overrides after module constants were initialized.
-    global SUPABASE_URL, SUPABASE_KEY, SUPABASE_TABLE, OLLAMA_URL, CHAT_MODEL, EMBED_MODEL, SYNC_INTERVAL, HOST, PORT
+    global SUPABASE_URL, SUPABASE_KEY, SUPABASE_TABLE, OLLAMA_URL, CHAT_MODEL, EMBED_MODEL, SYNC_INTERVAL, HOST, PORT, RELAY_URL, AI_ACCESS_TOKEN
     SUPABASE_URL = os.getenv("SUPABASE_URL", SUPABASE_URL).rstrip("/")
     SUPABASE_KEY = os.getenv("SUPABASE_KEY", SUPABASE_KEY)
     SUPABASE_TABLE = os.getenv("SUPABASE_TABLE", SUPABASE_TABLE)
@@ -301,9 +347,12 @@ def main() -> None:
     SYNC_INTERVAL = max(60, int(os.getenv("SYNC_INTERVAL_SECONDS", str(SYNC_INTERVAL))))
     HOST = os.getenv("HOST", HOST)
     PORT = int(os.getenv("PORT", str(PORT)))
+    RELAY_URL = os.getenv("RELAY_URL", RELAY_URL).rstrip("/")
+    AI_ACCESS_TOKEN = os.getenv("AI_ACCESS_TOKEN", AI_ACCESS_TOKEN)
 
     server = ThreadingHTTPServer((HOST, PORT), Handler)
     threading.Thread(target=sync_loop, daemon=True, name="supabase-sync").start()
+    threading.Thread(target=relay_loop, daemon=True, name="cloudflare-ai-relay").start()
     print(f"HanSearch AI service: http://{HOST}:{PORT}", flush=True)
     print(f"Supabase table: {SUPABASE_TABLE}; sync interval: {SYNC_INTERVAL}s", flush=True)
     server.serve_forever()
