@@ -11,8 +11,6 @@ import {
   insertItem, 
   updateItem, 
   deleteItem, 
-  bulkDeleteItems, 
-  bulkInsertItems
 } from './lib/supabase';
 import { 
   getStoredFavorites, 
@@ -31,7 +29,7 @@ import { SettingsModal } from './components/SettingsModal';
 import { HelpModal } from './components/HelpModal';
 import { ImageLightbox } from './components/ImageLightbox';
 import { AlertTriangle, Plus, SearchX, Loader2 } from 'lucide-react';
-import { getStoredAiToken, runAISearch, saveStoredAiToken, type AISearchResult } from './lib/localAi';
+import { clearStoredAiToken, runAISearch, type AISearchResult } from './lib/localAi';
 
 
 
@@ -58,7 +56,6 @@ export function App() {
   const [selectedCategory, setSelectedCategory] = useState<string>('');
   const [sortOption, setSortOption] = useState<SortOption>('latest');
   const [showOnlyFavorites, setShowOnlyFavorites] = useState<boolean>(false);
-  const [aiAccessToken, setAiAccessToken] = useState(getStoredAiToken);
   const [isAiSearching, setIsAiSearching] = useState(false);
   const [isAiSearchMode, setIsAiSearchMode] = useState(false);
   const [aiSearchResult, setAiSearchResult] = useState<AISearchResult | null>(null);
@@ -99,6 +96,10 @@ export function App() {
     loadData();
   }, [loadData]);
 
+  useEffect(() => {
+    clearStoredAiToken();
+  }, []);
+
   // Favorites Management
   const handleToggleFavorite = useCallback((id: number) => {
     setFavorites((prev) => {
@@ -132,31 +133,19 @@ export function App() {
   const handleAiSearchSubmit = async () => {
     const query = searchInput.trim();
     if (!query) return;
-    if (!aiAccessToken) {
-      setAiSearchError('설정에서 AI 검색 연결 키를 먼저 입력해 주세요.');
-      setIsSettingsModalOpen(true);
-      return;
-    }
-
     setActiveSearch(query);
     setIsAiSearchMode(true);
     setAiSearchResult(null);
     setAiSearchError(null);
     setIsAiSearching(true);
     try {
-      setAiSearchResult(await runAISearch(query, aiAccessToken));
+      setAiSearchResult(await runAISearch(query));
     } catch (error: any) {
       setAiSearchError(error?.message || 'AI 검색에 실패했습니다.');
       setIsAiSearchMode(false);
     } finally {
       setIsAiSearching(false);
     }
-  };
-
-  const handleSaveAiAccessToken = (token: string) => {
-    saveStoredAiToken(token);
-    setAiAccessToken(token.trim());
-    setAiSearchError(null);
   };
 
   // Quick Tag Click
@@ -281,12 +270,6 @@ export function App() {
       alert(`삭제 실패: ${err.message}`);
     }
   }, [config]);
-
-  const handleBulkDelete = async (ids: number[]) => {
-    await bulkDeleteItems(ids, config);
-    setItems((prev) => prev.filter((item) => !ids.includes(item.id!)));
-    setFavorites((prev) => prev.filter((favId) => !ids.includes(favId)));
-  };
 
   // Open Lightbox
 
@@ -523,8 +506,6 @@ export function App() {
         onClose={() => setIsSettingsModalOpen(false)}
         config={config}
         onSaveConfig={handleSaveConfig}
-        aiAccessToken={aiAccessToken}
-        onSaveAiAccessToken={handleSaveAiAccessToken}
       />
 
       <HelpModal
