@@ -75,7 +75,7 @@ export function AccountAdmin({ onClose }: { onClose: () => void }) {
               <button disabled={busy} onClick={() => remove(member)} className="text-rose-700 underline">{member.status === 'deleted' ? '삭제 마무리' : '삭제'}</button>
             </div>}</td></tr>)}
           </tbody></table></div>
-          {resetId && <form onSubmit={resetPassword} className="mt-3 flex flex-wrap items-center gap-2 rounded-lg bg-slate-50 p-3"><label className="text-sm">새 비밀번호<input type="password" autoComplete="new-password" required minLength={10} maxLength={128} value={password} onChange={e => setPassword(e.target.value)} disabled={busy} className="ml-2 rounded border border-slate-300 p-2" /></label><button disabled={busy} className="rounded bg-blue-600 px-3 py-2 text-sm text-white">변경</button><button type="button" disabled={busy} onClick={() => { setResetId(''); setPassword(''); }} className="text-sm">취소</button></form>}
+          {resetId && <form onSubmit={resetPassword} className="mt-3 flex flex-wrap items-center gap-2 rounded-lg bg-slate-50 p-3"><label className="text-sm">새 비밀번호<input type="password" autoComplete="new-password" required minLength={8} maxLength={128} value={password} onChange={e => setPassword(e.target.value)} disabled={busy} className="ml-2 rounded border border-slate-300 p-2" /></label><button disabled={busy} className="rounded bg-blue-600 px-3 py-2 text-sm text-white">변경</button><button type="button" disabled={busy} onClick={() => { setResetId(''); setPassword(''); }} className="text-sm">취소</button></form>}
         </section>
         <section>
           <h3 className="font-bold text-slate-800">계정별 통계</h3>
@@ -95,3 +95,4 @@ export function AccountAdmin({ onClose }: { onClose: () => void }) {
     </section>
   </div>;
 }
+

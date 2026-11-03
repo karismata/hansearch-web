@@ -144,7 +144,7 @@ const ItemCardComponent: React.FC<ItemCardProps> = ({
       </div>
 
       {/* Footer / Meta & Actions */}
-      <div className="pt-3 mt-1 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500 pl-6">
+      <div className="pt-3 mt-1 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500 pl-6">
         <div className="flex items-center gap-2 font-medium">
           <button
             onClick={() => onEdit(item)}
@@ -163,11 +163,9 @@ const ItemCardComponent: React.FC<ItemCardProps> = ({
           </button>
         </div>
 
-        <div className="text-slate-400 font-mono text-[11px]">
-          <span className="mr-2">작성자: {item.created_by_username || '기존 자료'}</span>
-          {item.created_at && (
-            <span>생성: {formatDate(item.created_at)}</span>
-          )}
+        <div className="flex flex-col gap-1 text-right text-slate-400 text-[11px]">
+          <span>등록자: {item.created_by_username || '기존 자료'}{item.created_at ? ` · ${formatDate(item.created_at)}` : ''}</span>
+          {item.updated_by_username && <span>최종 수정자: {item.updated_by_username}{item.last_edited_at ? ` · ${formatDate(item.last_edited_at)}` : ''}</span>}
         </div>
       </div>
     </article>
@@ -175,3 +173,4 @@ const ItemCardComponent: React.FC<ItemCardProps> = ({
 };
 
 export const ItemCard = React.memo(ItemCardComponent);
+

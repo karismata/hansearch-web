@@ -47,6 +47,18 @@ await db.query(`insert into auth.users(id,email) values($1,'other-app@example.co
 assert.equal((await db.query('select id from public.member_profiles where id=$1',[unrelated])).rows.length,0);
 async function as(role,id='') { await db.exec(`reset role; select set_config('request.jwt.claim.sub','${id}',false); select set_config('request.jwt.claim.role','${role}',false); set role ${role};`); }
 async function fails(sql) { await assert.rejects(()=>db.exec(sql)); }
+await db.exec(await readFile(new URL('../supabase/migrations/20261103011002_fix_signup_permits_and_last_editor.sql',import.meta.url),'utf8'));
+const permitId='77777777-7777-4777-8777-777777777777';
+await as('anon');await fails(`select public.hansearch_prepare_signup('${permitId}','permituser')`);
+await as('authenticated',master);await fails(`select public.hansearch_prepare_signup('${permitId}','permituser')`);
+await as('service_role');await db.query('select public.hansearch_prepare_signup($1,$2)',[permitId,'permituser']);
+await as('postgres');
+await fails(`insert into auth.users(id,email,raw_app_meta_data) values(gen_random_uuid(),'metadata_spoof@login.hansearch.invalid','{"hansearch_registration":true}')`);
+await fails(`insert into auth.users(id,email) values('${permitId}','wrongname@login.hansearch.invalid')`);
+await db.query(`insert into auth.users(id,email,raw_app_meta_data) values($1,'permituser@login.hansearch.invalid','{"provider":"email"}')`,[permitId]);
+assert.deepEqual((await db.query('select role,status from public.member_profiles where id=$1',[permitId])).rows[0],{role:'member',status:'pending'});
+assert.equal((await db.query('select count(*) as n from hansearch_private.signup_permits')).rows[0].n,0);
+await db.query(`insert into auth.users(id,email) values(gen_random_uuid(),'another-app@example.com')`);
 await as('authenticated',master);
 await db.query('select public.hansearch_set_ai_sync_token($1)',[token]);
 await db.query('select public.hansearch_approve_account($1)',[member]);
@@ -74,8 +86,15 @@ assert.equal((await db.query('select id from public.member_profiles')).rows.leng
 await as('authenticated',member);
 let rows=await db.query(`insert into public.info("키워드2","내용",created_by,created_by_username) values('새 자료','내용',$1,'master') returning *`,[master]);
 const record=rows.rows[0]; assert.equal(record.created_by,member); assert.equal(record.created_by_username,'worker1');
+assert.equal(record.updated_by,null);assert.equal(record.last_edited_at,null);
 await db.query('update public.info set created_by=$1,created_by_username=$2 where id=$3',[master,'master',record.id]);
 assert.equal((await db.query('select created_by from public.info where id=$1',[record.id])).rows[0].created_by,member);
+assert.equal((await db.query('select updated_by from public.info where id=$1',[record.id])).rows[0].updated_by,member);
+await as('authenticated',master);
+await db.query('update public.info set "내용"=$1,updated_by=$2,updated_by_username=$3 where id=$4',['수정된 내용',member,'forged',record.id]);
+const edited=(await db.query('select * from public.info where id=$1',[record.id])).rows[0];
+assert.equal(edited.created_by,member);assert.equal(edited.updated_by,master);assert.equal(edited.updated_by_username,'master');assert(edited.last_edited_at);
+await as('authenticated',member);
 const event='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 await db.query('select public.hansearch_record_search($1,$2)',['search',event]);
 await db.query('select public.hansearch_record_search($1,$2)',['search',event]);
@@ -101,7 +120,7 @@ await as('authenticated',master);
 stats=(await db.query('select * from public.hansearch_account_statistics()')).rows.find(r=>r.user_id===member);
 assert.equal(stats.status,'deleted'); assert.equal(Number(stats.total_searches),2); assert.equal(Number(stats.data_created),1);
 await as('postgres');
-await fails(`insert into auth.users(id,email,raw_app_meta_data) values('44444444-4444-4444-8444-444444444444','worker1@login.hansearch.invalid','{"hansearch_registration":true}')`);
+await fails(`select public.hansearch_prepare_signup('44444444-4444-4444-8444-444444444444','worker1')`);
 await db.close();
 console.log('PASS: RLS, approval, role and author spoof prevention, idempotent statistics, deleted-token denial, storage ownership, and retained history');
 
