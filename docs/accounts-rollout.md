@@ -46,6 +46,7 @@ PGLITE_MODULE="/absolute/path/to/pglite/dist/index.js" node tests/accounts-rls.m
 node tests/worker-accounts.mjs
 node tests/accounts-edge.mjs
 JSDOM_MODULE="/absolute/path/to/jsdom" node tests/accounts-ui.cjs
+JSDOM_MODULE="/absolute/path/to/jsdom" node tests/accounts-session-stability.cjs
 python -m unittest discover -s tests -p 'test_sync_accounts.py'
 npx tsc -b --pretty false
 npx tsc -p tsconfig.edge.json --pretty false

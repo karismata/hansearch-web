@@ -55,7 +55,8 @@ export function getDefaultConfig(): SupabaseConfig {
 export function saveConfig(config: SupabaseConfig) {
   try {
     localStorage.setItem(CONFIG_STORAGE_KEY, JSON.stringify(config));
-    clientInstance = null; // Reset client instance to reload with new config
+    // getSupabaseClient compares connection credentials before creating a client.
+    // Saving identical settings must retain the active Auth subscription.
   } catch (e) {
     console.error('Failed to save supabase config', e);
   }
@@ -325,4 +326,5 @@ export async function uploadImageToStorage(file: File, config?: SupabaseConfig):
 
   return publicUrlData.publicUrl;
 }
+
 

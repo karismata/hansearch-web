@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useContext, useEffect, useRef, useState } from 'react';
 import type { FormEvent, ReactNode } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { accountAction, accountClient, accountEmail, normalizeUsername, readProfile } from '../lib/accounts';
@@ -25,6 +25,9 @@ export function AccountGate({ children }: { children: ReactNode }) {
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [retry, setRetry] = useState(0);
+  const checkedUser = useRef<string | null>(null);
+  const userId = session?.user.id ?? null;
+  const accessToken = session?.access_token ?? null;
   useEffect(() => {
     let active = true;
     const client = accountClient();
@@ -42,21 +45,28 @@ export function AccountGate({ children }: { children: ReactNode }) {
   }, []);
   useEffect(() => {
     let active = true;
-    if (!session) { setProfile(null); setLoading(false); return; }
-    setLoading(true); setProfile(null);
+    let requestVersion = 0;
+    if (!userId) { checkedUser.current = null; setProfile(null); setLoading(false); return; }
+    // Auth may emit SIGNED_IN again on focus or from another client/tab.
+    // Keep this user's verified view mounted during background checks.
+    if (checkedUser.current !== userId) { setLoading(true); setProfile(null); }
     const refresh = async () => {
+      const version = ++requestVersion;
       try {
-        const found = await readProfile(session.user.id);
-        if (active) { setProfile(found); setError(found ? '' : '이용할 수 없는 계정입니다. 마스터에게 문의해 주세요.'); }
-      } catch { if (active) { setProfile(null); setError('계정 승인 상태를 확인할 수 없습니다. 다시 확인해 주세요.'); } }
-      finally { if (active) setLoading(false); }
+        const found = await readProfile(userId);
+        if (active && version === requestVersion) {
+          checkedUser.current = userId; setProfile(found);
+          setError(found ? '' : '이용할 수 없는 계정입니다. 마스터에게 문의해 주세요.');
+        }
+      } catch { if (active && version === requestVersion) { checkedUser.current = null; setProfile(null); setError('계정 승인 상태를 확인할 수 없습니다. 다시 확인해 주세요.'); } }
+      finally { if (active && version === requestVersion) setLoading(false); }
     };
     void refresh();
     const timer = window.setInterval(() => { void refresh(); }, 15000);
     const focus = () => { void refresh(); };
     window.addEventListener('focus', focus);
     return () => { active = false; window.clearInterval(timer); window.removeEventListener('focus', focus); };
-  }, [session, retry]);
+  }, [userId, accessToken, retry]);
   const signOut = async () => {
     const { error: logoutError } = await accountClient().auth.signOut();
     if (logoutError) await accountClient().auth.signOut({ scope: 'local' });
@@ -78,7 +88,7 @@ export function AccountGate({ children }: { children: ReactNode }) {
     } catch (err) { setError(err instanceof Error ? err.message : '요청 처리에 실패했습니다.'); }
     finally { setBusy(false); }
   };
-  if (!initializing && !loading && profile?.status === 'approved' && session) {
+  if (!initializing && !loading && profile?.status === 'approved' && profile.id === userId && session) {
     return <AccountContext.Provider value={{ profile, signOut }}>{children}</AccountContext.Provider>;
   }
   return <main className="flex min-h-screen items-center justify-center bg-slate-100 p-4">
@@ -102,3 +112,4 @@ export function AccountGate({ children }: { children: ReactNode }) {
     </section>
   </main>;
 }
+

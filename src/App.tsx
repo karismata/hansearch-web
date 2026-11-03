@@ -49,11 +49,7 @@ export function App() {
     void recordSearch(kind).then(() => setActivityWarning('')).catch(() => setActivityWarning('일부 검색 통계를 기록하지 못했습니다. 연결 상태를 확인해 주세요.'));
   };
   // Config & Connection State
-  const [config, setConfig] = useState<SupabaseConfig>(() => {
-    const def = getDefaultConfig();
-    saveConfig(def);
-    return def;
-  });
+  const [config, setConfig] = useState<SupabaseConfig>(getDefaultConfig);
   const [isConnected, setIsConnected] = useState<boolean>(true);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -563,3 +559,4 @@ export function App() {
 }
 
 export default App;
+
