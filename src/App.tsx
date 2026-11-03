@@ -66,6 +66,14 @@ export function App() {
   const [selectedCategory, setSelectedCategory] = useState<string>('');
   const [sortOption, setSortOption] = useState<SortOption>('latest');
   const [showOnlyFavorites, setShowOnlyFavorites] = useState<boolean>(false);
+  const [searchOptionsOpen, setSearchOptionsOpen] = useState(() => {
+    try { return localStorage.getItem('hansearch_search_options_open') === 'true'; }
+    catch { return false; }
+  });
+  useEffect(() => {
+    try { localStorage.setItem('hansearch_search_options_open', String(searchOptionsOpen)); }
+    catch { /* Layout preferences remain usable when storage is unavailable. */ }
+  }, [searchOptionsOpen]);
   const [isAiSearching, setIsAiSearching] = useState(false);
   const [aiSearchStatus, setAiSearchStatus] = useState<AISearchStatus>('pending');
   const [aiSearchElapsedSeconds, setAiSearchElapsedSeconds] = useState(0);
@@ -343,6 +351,9 @@ export function App() {
         onChangePassword={() => setIsPasswordOpen(true)}
         onSignOut={() => void signOut()}
         activityWarning={activityWarning}
+        filtersOpen={searchOptionsOpen}
+        activeFilterCount={Number(Boolean(selectedCategory)) + Number(showOnlyFavorites) + Number(sortOption !== 'latest')}
+        onToggleFilters={() => setSearchOptionsOpen(open => !open)}
       >
         <SearchBar
           query={searchInput}
@@ -368,7 +379,7 @@ export function App() {
       {/* Main Container */}
       <main className="max-w-7xl w-full mx-auto px-4 sm:px-6 py-5 flex-1 flex flex-col space-y-4">
         {/* Search & Filter Card */}
-        <section className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-xs space-y-3">
+        <section id="search-options-panel" aria-label="검색 옵션 및 자주 찾는 검색어" hidden={!searchOptionsOpen} className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-xs space-y-3">
           <SearchFilters
             selectedCategory={selectedCategory}
             onChangeCategory={setSelectedCategory}
