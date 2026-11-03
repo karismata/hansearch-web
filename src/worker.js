@@ -1,3 +1,5 @@
+import { approvedMember } from './lib/memberAuth.js';
+
 const ALLOWED_ORIGINS = new Set([
   "https://hansearch-web.pages.dev",
   "https://hansearch-web.karis830519.workers.dev",
@@ -22,7 +24,7 @@ function corsHeaders(request) {
   const origin = request.headers.get("Origin") || "";
   const headers = new Headers({
     "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type",
+    "Access-Control-Allow-Headers": "Authorization, Content-Type",
     "Access-Control-Max-Age": "86400",
     "Vary": "Origin",
   });
@@ -92,6 +94,14 @@ export default {
       if (isAgentRequest && !authorized(request, env)) return unauthorized(request);
 
       const forwarded = new Request(`https://ai-queue.internal${targetPath}`, request);
+      forwarded.headers.delete('X-HanSearch-User');
+      if (!isAgentRequest) {
+        let member;
+        try { member = await approvedMember(request, env); }
+        catch { return jsonResponse(request, { error: '계정 확인 서비스에 연결할 수 없습니다.' }, 503); }
+        if (!member) return jsonResponse(request, { error: '승인된 계정으로 로그인해 주세요.' }, 403);
+        forwarded.headers.set('X-HanSearch-User', member.id);
+      }
       return withCors(request, await queue.fetch(forwarded));
     }
 
@@ -107,6 +117,8 @@ export class AIQueue {
   async fetch(request) {
     const url = new URL(request.url);
     if (url.pathname === "/enqueue" && request.method === "POST") {
+      const ownerId = request.headers.get('X-HanSearch-User');
+      if (!ownerId) return Response.json({ error: '로그인이 필요합니다.' }, { status: 401 });
       const body = await request.json().catch(() => null);
       const query = typeof body?.query === "string" ? body.query.trim() : "";
       if (!query || query.length > 1000) return Response.json({ error: "검색어는 1~1000자여야 합니다." }, { status: 400 });
@@ -131,7 +143,7 @@ export class AIQueue {
       currentRate.count += 1;
       await this.state.storage.put(rateKey, currentRate);
 
-      const job = { id: crypto.randomUUID(), query, status: "pending", createdAt: now };
+      const job = { id: crypto.randomUUID(), query, ownerId, status: "pending", createdAt: now };
       await this.state.storage.put(`job:${job.id}`, job);
       const existingAlarm = await this.state.storage.getAlarm();
       const nextAlarm = Math.min(now + JOB_TTL_MS, currentRate.resetAt, existingAlarm ?? Infinity);
@@ -157,7 +169,7 @@ export class AIQueue {
     const getMatch = url.pathname.match(/^\/jobs\/([\w-]+)$/);
     if (getMatch && request.method === "GET") {
       const job = await this.state.storage.get(`job:${getMatch[1]}`);
-      if (!job) return Response.json({ error: "검색 요청을 찾을 수 없습니다." }, { status: 404 });
+      if (!job || job.ownerId !== request.headers.get('X-HanSearch-User')) return Response.json({ error: "검색 요청을 찾을 수 없습니다." }, { status: 404 });
       return Response.json({ id: job.id, status: job.status, result: job.result || null, error: job.error || null });
     }
 

@@ -26,7 +26,7 @@ dist-ssr
 *.ntvs*
 *.njsproj
 *.sln
-*.sw*
+*.sw?
 
 # Android build outputs
 android/.gradle/
@@ -39,3 +39,5 @@ android/local.properties
 # Local AI data and credentials
 local-ai/.env
 local-ai/data/
+__pycache__/
+*.py[cod]

@@ -2,6 +2,8 @@ export interface InfoItem {
   id?: number;
   created_at?: string;
   updated_at?: string;
+  created_by?: string | null;
+  created_by_username?: string;
   키워드: string;   // Category (대분류)
   키워드2: string;  // Title (제목 / 키워드2)
   내용: string;     // Content (본문 / 상세 내용)

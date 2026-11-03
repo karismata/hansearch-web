@@ -164,6 +164,7 @@ const ItemCardComponent: React.FC<ItemCardProps> = ({
         </div>
 
         <div className="text-slate-400 font-mono text-[11px]">
+          <span className="mr-2">작성자: {item.created_by_username || '기존 자료'}</span>
           {item.created_at && (
             <span>생성: {formatDate(item.created_at)}</span>
           )}
@@ -174,4 +175,3 @@ const ItemCardComponent: React.FC<ItemCardProps> = ({
 };
 
 export const ItemCard = React.memo(ItemCardComponent);
-

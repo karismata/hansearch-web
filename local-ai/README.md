@@ -16,6 +16,8 @@ minutes. Search and answer generation still run on the Mac mini.
 
 ## Run on the Mac mini
 
+로그인 기능 전환 시에는 master 화면에서 기존 `AI_ACCESS_TOKEN`을 동기화 연결키로 등록한 후 `.env`에 `SUPABASE_ACCOUNT_MODE=1`을 설정해야 합니다. 이 모드에서는 공개 테이블 조회 대신 읽기 전용 인증 RPC로 동기화합니다. 웹 계정 비밀번호나 Supabase 서비스 역할 키를 맥미니에 추가할 필요는 없습니다. 전환 전에는 기본값 `0`을 유지합니다.
+
 1. Install Python 3 if needed (`python3 --version`). No Python packages are required.
 2. Copy `.env.example` to `.env` in this directory. Check the Supabase URL/key/table
    against HanSearch's Settings screen if you changed them there.
@@ -49,4 +51,3 @@ operation fails, the prior local snapshot is retained. A later successful sync
 reconciles additions, edits, and deletions. The Worker relay is available only
 after its AIQueue Durable Object migration is deployed and the `AI_ACCESS_TOKEN`
 Worker secret is configured.
-

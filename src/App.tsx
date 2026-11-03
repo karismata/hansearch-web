@@ -23,6 +23,10 @@ import {
 import { Header } from './components/Header';
 import { SearchBar, SearchFilters } from './components/SearchBar';
 import { ScrollToTop } from './components/ScrollToTop';
+import { useAccount } from './components/AccountGate';
+import { AccountAdmin } from './components/AccountAdmin';
+import { AccountPassword } from './components/AccountPassword';
+import { recordSearch } from './lib/accounts';
 import { QuickTags } from './components/QuickTags';
 import { ItemCard } from './components/ItemCard';
 import { DataModal } from './components/DataModal';
@@ -37,12 +41,15 @@ import { clearStoredAiToken, runAISearch, type AISearchResult, type AISearchStat
 
 
 export function App() {
+  const { profile, signOut } = useAccount();
+  const [isAccountAdminOpen, setIsAccountAdminOpen] = useState(false);
+  const [isPasswordOpen, setIsPasswordOpen] = useState(false);
+  const [activityWarning, setActivityWarning] = useState('');
+  const logSearch = (kind: 'search' | 'ai_search') => {
+    void recordSearch(kind).then(() => setActivityWarning('')).catch(() => setActivityWarning('일부 검색 통계를 기록하지 못했습니다. 연결 상태를 확인해 주세요.'));
+  };
   // Config & Connection State
-  const [config, setConfig] = useState<SupabaseConfig>(() => {
-    const def = getDefaultConfig();
-    saveConfig(def);
-    return def;
-  });
+  const [config, setConfig] = useState<SupabaseConfig>(getDefaultConfig);
   const [isConnected, setIsConnected] = useState<boolean>(true);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -138,6 +145,7 @@ export function App() {
 
   // Search Submit
   const handleSearchSubmit = () => {
+    if (searchInput.trim()) logSearch('search');
     setIsAiSearchMode(false);
     setAiSearchResult(null);
     setAiSearchError(null);
@@ -147,6 +155,7 @@ export function App() {
   const handleAiSearchSubmit = async () => {
     const query = searchInput.trim();
     if (!query) return;
+    logSearch('ai_search');
     setActiveSearch(query);
     setIsAiSearchMode(true);
     setAiSearchResult(null);
@@ -182,6 +191,7 @@ export function App() {
 
   // Quick Tag Click
   const handleSelectTag = (tag: string) => {
+    if (tag.trim()) logSearch('search');
     setIsAiSearchMode(false);
     setAiSearchResult(null);
     setSearchInput(tag);
@@ -331,6 +341,12 @@ export function App() {
         }}
         onOpenSettingsModal={() => setIsSettingsModalOpen(true)}
         onOpenHelpModal={() => setIsHelpModalOpen(true)}
+        username={profile.username}
+        isMaster={profile.role === 'master'}
+        onOpenAccounts={() => setIsAccountAdminOpen(true)}
+        onChangePassword={() => setIsPasswordOpen(true)}
+        onSignOut={() => void signOut()}
+        activityWarning={activityWarning}
       >
         <SearchBar
           query={searchInput}
@@ -385,10 +401,10 @@ export function App() {
               </div>
             </div>
             <button
-              onClick={() => setIsSettingsModalOpen(true)}
+              onClick={() => profile.role === 'master' ? setIsSettingsModalOpen(true) : void loadData()}
               className="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg font-medium shrink-0 transition-colors shadow-2xs"
             >
-              설정 열기
+              {profile.role === 'master' ? '설정 열기' : '다시 확인'}
             </button>
           </div>
         )}
@@ -505,6 +521,8 @@ export function App() {
       </main>
 
       {/* Modals */}
+      {isAccountAdminOpen && profile.role === 'master' && <AccountAdmin onClose={() => setIsAccountAdminOpen(false)} />}
+      {isPasswordOpen && <AccountPassword onClose={() => setIsPasswordOpen(false)} />}
       <DataModal
         isOpen={isDataModalOpen}
         onClose={() => {
@@ -517,7 +535,8 @@ export function App() {
       />
 
       <SettingsModal
-        isOpen={isSettingsModalOpen}
+        locked
+        isOpen={isSettingsModalOpen && profile.role === 'master'}
         onClose={() => setIsSettingsModalOpen(false)}
         config={config}
         onSaveConfig={handleSaveConfig}
