@@ -32,16 +32,31 @@ Deno.serve(async (req: Request) => {
       if (!/^[a-z0-9][a-z0-9_.-]{2,31}$/.test(username) || username === 'master') {
         return reply(req, { error: '아이디는 영문 소문자·숫자·._- 조합 3~32자이며 master는 사용할 수 없습니다.' }, 400);
       }
-      if (password.length < 10 || password.length > 128) return reply(req, { error: '비밀번호는 10~128자로 입력해 주세요.' }, 400);
+      if (password.length < 8 || password.length > 128) return reply(req, { error: '비밀번호는 8~128자로 입력해 주세요.' }, 400);
       const clientIp = req.headers.get('cf-connecting-ip') || req.headers.get('x-real-ip') || 'unknown';
       const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(clientIp));
       const hash = Array.from(new Uint8Array(digest), b => b.toString(16).padStart(2,'0')).join('');
       const limit = await admin.rpc('hansearch_signup_allowed', { p_client_hash: hash });
       if (limit.error) return reply(req, { error: '가입 서비스 설정을 확인해 주세요.' }, 503);
       if (!limit.data) return reply(req, { error: '가입 요청이 많습니다. 잠시 후 다시 시도해 주세요.' }, 429);
-      const { error } = await admin.auth.admin.createUser({ email: `${username}@login.hansearch.invalid`, password,
-        email_confirm: true, app_metadata: { hansearch_registration: true } });
-      if (error) return reply(req, { error: '가입할 수 없는 아이디이거나 가입 처리에 실패했습니다.' }, 400);
+      const userId = crypto.randomUUID();
+      const permit = await admin.rpc('hansearch_prepare_signup', { p_id: userId, p_username: username });
+      if (permit.error) return reply(req, { error: permit.error.code === '23505'
+        ? '이미 사용됐거나 사용할 수 없는 아이디입니다.' : '가입 서비스 설정을 확인해 주세요.' }, permit.error.code === '23505' ? 409 : 503);
+      let registration;
+      try {
+        registration = await admin.auth.admin.createUser({ id: userId,
+          email: `${username}@login.hansearch.invalid`, password, email_confirm: true });
+      } finally {
+        await admin.rpc('hansearch_cancel_signup', { p_id: userId });
+      }
+      if (registration.error) {
+        const code = registration.error.code;
+        if (code === 'email_exists' || code === 'user_already_exists') return reply(req, { error: '이미 사용 중인 아이디입니다.' }, 409);
+        if (code === 'weak_password') return reply(req, { error: '비밀번호는 8~128자로 입력하고 비밀번호 보안 조건을 확인해 주세요.' }, 400);
+        console.error('account_registration_failed', { code, status: registration.error.status });
+        return reply(req, { error: '가입 정보를 저장하지 못했습니다. 잠시 후 다시 시도해 주세요.' }, 503);
+      }
       return reply(req, { ok: true, message: '가입 신청이 완료됐습니다. 마스터 승인 후 이용할 수 있습니다.' }, 201);
     }
     const token = (req.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '');
@@ -63,7 +78,7 @@ Deno.serve(async (req: Request) => {
     }
     if (body.action === 'reset_password') {
       const password = String(body.password || '');
-      if (target.status === 'deleted' || password.length < 10 || password.length > 128) return reply(req, { error: '계정 상태와 비밀번호 길이를 확인해 주세요.' }, 400);
+      if (target.status === 'deleted' || password.length < 8 || password.length > 128) return reply(req, { error: '비밀번호는 8~128자로 입력하고 계정 상태를 확인해 주세요.' }, 400);
       const { error } = await admin.auth.admin.updateUserById(targetId, { password });
       return error ? reply(req, { error: '비밀번호 변경에 실패했습니다.' }, 400) : reply(req, { ok: true });
     }

@@ -12,7 +12,7 @@
 ## 준비
 
 1. DB 소유자 권한으로 `supabase/migrations/202611020001_accounts_prepare.sql`과 `20261103001003_hansearch_accounts_explicit_grants.sql`을 적용합니다. 이 단계는 기존 info 공개 정책을 변경하지 않습니다. 후자는 운영 프로젝트의 기본 함수 권한으로 붙는 익명 호출 권한을 명시적으로 회수합니다. 한주AI snapshot은 별도 연결키를 검증하므로 익명 API 키 호출을 유지합니다.
-2. 공유 프로젝트이므로 Auth 전체 공개 signUp 설정을 변경하지 않습니다. 마스터 생성 후 `accounts` Edge Function v2와 `20261103004717_hansearch_signup_origin_guard.sql`을 적용합니다. 한서치 내부 이메일 계정만 서버 Admin API의 `app_metadata.hansearch_registration=true` 표시를 요구합니다. 사용자가 편집하는 `user_metadata`로 이 검사를 통과할 수 없고, 생성된 프로필은 항상 일반 회원/승인 대기입니다. 다른 앱의 이메일과 기존 계정에는 영향을 주지 않습니다.
+2. 공유 프로젝트이므로 Auth 전체 공개 signUp 설정을 변경하지 않습니다. 마스터 생성 후 기존 `20261103004717_hansearch_signup_origin_guard.sql`과 보완 `20261103011002_fix_signup_permits_and_last_editor.sql`, `accounts` Edge Function v3를 적용합니다. 서버만 만들 수 있는 2분짜리 가입 허가를 정확한 Auth UUID와 아이디에 연결하며, Auth INSERT 트리거가 이를 1회 소비합니다. Supabase가 INSERT 이후 저장하는 app_metadata에는 의존하지 않습니다. 프로필은 항상 일반 회원/승인 대기로 시작하며 다른 앱의 이메일과 기존 계정에는 영향을 주지 않습니다.
 3. `supabase/functions/accounts/index.ts`를 `accounts` Edge Function으로 배포합니다. `verify_jwt=false`를 사용합니다. 가입만 공개이며 나머지 동작은 함수 내부에서 실제 JWT와 마스터 프로필을 검증합니다.
 4. 소유자가 Supabase Authentication의 사용자 생성 화면에서 `master@login.hansearch.invalid` 계정을 직접 생성합니다. 비밀번호는 소유자가 비공개로 입력하고 이메일은 확인 완료로 지정합니다. 웹 로그인 아이디는 `master`입니다. 기본/공유 비밀번호는 만들지 않습니다.
 5. 생성한 Auth UUID를 `supabase/setup/bootstrap_master.sql`의 자리표시자에 넣어 소유자 권한으로 실행합니다. 회원 가입 메타데이터로는 마스터를 만들 수 없습니다.
@@ -30,6 +30,7 @@
 
 - 일반 회원은 승인 후 기존 자료 검색·생성·수정·삭제 기능을 사용합니다. 승인/계정 삭제/타인 비밀번호 초기화/전체 통계는 마스터만 가능합니다.
 - 작성자와 신규 자료 생성 이벤트는 DB 트리거가 기록하며, 클라이언트가 다른 작성자를 보내도 덮어씁니다. 작성자는 자료 수정 시 변경되지 않습니다. 기존 자료에는 작성자 추정 없이 `기존 자료`가 표시됩니다.
+- 가입·비밀번호 변경·마스터의 비밀번호 초기화는 8~128자를 사용합니다. 마지막 수정자와 수정 시각은 DB가 기록하며 등록자는 유지합니다. 기존 수정 이력을 추정하지 않고 적용 이후 수정부터 한 명의 최종 수정자만 표시합니다.
 - 일반 검색 버튼/Enter/빠른 검색어 선택은 일반 검색 1회, AI 검색 실행은 AI 검색 1회로 집계합니다. 실패한 AI 검색도 실행 횟수에 포함됩니다. 입력 중, 페이지 이동, AI 상태 폴링은 세지 않습니다. 저장된 정답 재사용도 AI 검색 1회입니다.
 - 검색 이벤트 ID는 중복 저장되지 않습니다. 생성 통계는 삭제된 자료도 포함하는 누적 생성 횟수입니다. 계정 삭제 후에도 계정 UUID·아이디 및 통계 이력은 남습니다. 삭제된 아이디는 재사용하지 않습니다.
 - 날짜 범위는 Asia/Seoul의 시작일 00:00부터 종료일 다음 날 00:00 미만입니다. 과거 검색량과 과거 작성자는 소급 복원하지 않습니다.
