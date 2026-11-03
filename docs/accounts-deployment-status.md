@@ -1,0 +1,18 @@
+# 계정 기능 운영 준비 상태
+
+2026-11-03 KST, BBCS / HanSearch (`trtpgahsnuddenmxuazq`)에서 확인했습니다.
+
+- 운영 `info` 자료 605건, 기존 자료 작성자 `기존 자료` 605건을 확인했습니다. 기존 검색 접근 권한은 아직 전환하지 않았습니다.
+- 준비 SQL 적용: 원본 `202611020001_accounts_prepare.sql`, 운영 이력 `20261103000609_hansearch_accounts_prepare`.
+- 명시적 함수 권한 보완 적용: 원본 `20261103001003_hansearch_accounts_explicit_grants.sql`, 운영 이력 `20261103001047_hansearch_accounts_explicit_grants`.
+- `accounts` Edge Function v1 배포 완료. 함수 내부에서 관리 요청의 JWT와 최신 승인 마스터 프로필을 검사합니다.
+- 실제 HTTP 검사 통과: 허용 Origin OPTIONS 200, 비로그인 관리 요청 401, 예약된 master 일반 가입 400, 다른 Origin 403. 시험 계정은 생성하지 않았습니다.
+- 운영 기본 ACL에 따른 익명 관리 RPC 실행 권한을 회수했고, 실제 `has_function_privilege` 조회로 확인했습니다. AI snapshot만 별도 연결키를 검증하는 공개 호출 경로로 유지합니다.
+- 새 계정 0건, 통계 이벤트 0건. 마스터 계정은 아직 만들지 않았습니다.
+
+다음은 소유자가 Auth 화면에서 `master@login.hansearch.invalid` 사용자와 비공개 비밀번호를 직접 생성하는 단계입니다. 정확한 Auth UUID와 이메일을 확인한 뒤 `bootstrap_master.sql`로 마스터를 승인합니다. 마스터 로그인, 한주AI 동기화 키 등록 및 Mac의 계정 모드 동기화를 확인한 후 웹/Worker 배포와 활성화 SQL을 진행합니다. 준비 PR은 그 전까지 병합하지 않습니다.
+
+프로젝트에는 기존 Auth 사용자 3명과 다른 테이블도 있으므로 공개 signUp 비활성화는 기존 이용 범위를 확인한 뒤 진행해야 합니다. 기존 `info` 등 6개 테이블의 RLS 미설정 경고는 여전히 남아 있습니다. `info` 접근 제한은 계정 기능 전환 단계에 포함되며, 다른 테이블의 정책은 이 준비 단계에서 변경하지 않았습니다. 공개 이미지 URL도 유지됩니다.
+
+MCP가 운영 마이그레이션 버전을 생성하므로 저장소 파일명과 운영 이력 버전은 다릅니다. 이 프로젝트에 저장소 전체를 자동 `db push`하지 말고 적용 이력과 `accounts-rollout.md` 순서를 확인하세요.
+

@@ -11,7 +11,7 @@
 
 ## 준비
 
-1. DB 소유자 권한으로 `supabase/migrations/202611020001_accounts_prepare.sql`을 적용합니다. 이 단계는 기존 info 공개 정책을 변경하지 않습니다.
+1. DB 소유자 권한으로 `supabase/migrations/202611020001_accounts_prepare.sql`과 `20261103001003_hansearch_accounts_explicit_grants.sql`을 적용합니다. 이 단계는 기존 info 공개 정책을 변경하지 않습니다. 후자는 운영 프로젝트의 기본 함수 권한으로 붙는 익명 호출 권한을 명시적으로 회수합니다. 한주AI snapshot은 별도 연결키를 검증하므로 익명 API 키 호출을 유지합니다.
 2. Supabase Auth의 일반 공개 signUp을 비활성화합니다. 가입 신청은 아래 Edge Function의 서버 Admin API로만 처리합니다. 기존 인증/다른 앱이 이 프로젝트를 공유한다면 먼저 영향을 확인해야 합니다.
 3. `supabase/functions/accounts/index.ts`를 `accounts` Edge Function으로 배포합니다. `verify_jwt=false`를 사용합니다. 가입만 공개이며 나머지 동작은 함수 내부에서 실제 JWT와 마스터 프로필을 검증합니다.
 4. 소유자가 Supabase Authentication의 사용자 생성 화면에서 `master@login.hansearch.invalid` 계정을 직접 생성합니다. 비밀번호는 소유자가 비공개로 입력하고 이메일은 확인 완료로 지정합니다. 웹 로그인 아이디는 `master`입니다. 기본/공유 비밀번호는 만들지 않습니다.
@@ -53,3 +53,4 @@ npm run build
 ```
 
 실제 프로젝트의 기존 RLS, Storage 구조, Auth 설정에 대한 검증은 별도로 필요합니다. 준비 마이그레이션이 로컬에서 통과했다는 사실만으로 운영 적용 완료로 간주하지 않습니다.
+

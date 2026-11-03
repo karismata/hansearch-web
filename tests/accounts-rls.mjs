@@ -9,6 +9,7 @@ const pending='33333333-3333-4333-8333-333333333333';
 const token='test-only-sync-token-32-characters-minimum';
 await db.exec(`
 create role anon; create role authenticated; create role service_role bypassrls;
+alter default privileges in schema public grant execute on functions to anon,authenticated,service_role;
 create schema auth; create schema storage;
 create function auth.uid() returns uuid language sql stable as $$select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid$$;
 create function auth.role() returns text language sql stable as $$select current_setting('request.jwt.claim.role',true)$$;
@@ -25,6 +26,11 @@ create policy old_public_info on public.info for all to public using(true) with 
 insert into public.info("키워드2","내용") values('기존 자료','기존 내용');
 `);
 await db.exec(await readFile(new URL('../supabase/migrations/202611020001_accounts_prepare.sql',import.meta.url),'utf8'));
+await db.exec(await readFile(new URL('../supabase/migrations/20261103001003_hansearch_accounts_explicit_grants.sql',import.meta.url),'utf8'));
+for (const signature of ['hansearch_is_approved()', 'hansearch_is_master()', 'hansearch_approve_account(uuid)', 'hansearch_prepare_account_deletion(uuid)', 'hansearch_record_search(text,uuid)', 'hansearch_account_statistics(timestamptz,timestamptz)', 'hansearch_set_ai_sync_token(text)']) {
+  const result = await db.query("select has_function_privilege('anon',$1,'EXECUTE') as allowed", [`public.${signature}`]);
+  assert.equal(result.rows[0].allowed, false, signature);
+}
 await db.exec(`insert into auth.users(id,email,raw_user_meta_data) values
 ('${master}','master@login.hansearch.invalid','{}'),
 ('${member}','worker1@login.hansearch.invalid','{"role":"master","status":"approved"}'),
@@ -86,3 +92,4 @@ await as('postgres');
 await fails(`insert into auth.users(id,email) values('44444444-4444-4444-8444-444444444444','worker1@login.hansearch.invalid')`);
 await db.close();
 console.log('PASS: RLS, approval, role and author spoof prevention, idempotent statistics, deleted-token denial, storage ownership, and retained history');
+
