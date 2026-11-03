@@ -20,6 +20,7 @@ assert.equal((await call({action:'register',username:'master',password:'test-pas
 assert.equal((await call({action:'register',username:'worker1',password:'short'})).status,400);
 assert.equal((await call({action:'register',username:'worker1',password:'test-password-123'})).status,201);
 const created=ops.find(x=>x[0]==='create')[1];assert.equal(created.email,'worker1@login.hansearch.invalid');assert.equal(created.email_confirm,true);
+assert.deepEqual(created.app_metadata,{hansearch_registration:true});
 limited=true;assert.equal((await call({action:'register',username:'worker2',password:'test-password-123'})).status,429);limited=false;
 assert.equal((await call({action:'delete',user_id:member})).status,401);
 actor=master;role='member';assert.equal((await call({action:'delete',user_id:member})).status,403);
@@ -30,3 +31,4 @@ deleteFails=true;assert.equal((await call({action:'delete',user_id:member})).sta
 targetStatus='deleted';assert.equal((await call({action:'reset_password',user_id:member,password:'test-password-123'})).status,400);
 delete globalThis.Deno;delete globalThis.__accountTestClient;
 console.log('PASS: reserved master ID, signup limits, master-only actions, self/master deletion protection, disable-before-delete, and failed cleanup reporting');
+

@@ -39,7 +39,8 @@ Deno.serve(async (req: Request) => {
       const limit = await admin.rpc('hansearch_signup_allowed', { p_client_hash: hash });
       if (limit.error) return reply(req, { error: '가입 서비스 설정을 확인해 주세요.' }, 503);
       if (!limit.data) return reply(req, { error: '가입 요청이 많습니다. 잠시 후 다시 시도해 주세요.' }, 429);
-      const { error } = await admin.auth.admin.createUser({ email: `${username}@login.hansearch.invalid`, password, email_confirm: true });
+      const { error } = await admin.auth.admin.createUser({ email: `${username}@login.hansearch.invalid`, password,
+        email_confirm: true, app_metadata: { hansearch_registration: true } });
       if (error) return reply(req, { error: '가입할 수 없는 아이디이거나 가입 처리에 실패했습니다.' }, 400);
       return reply(req, { ok: true, message: '가입 신청이 완료됐습니다. 마스터 승인 후 이용할 수 있습니다.' }, 201);
     }
@@ -71,3 +72,4 @@ Deno.serve(async (req: Request) => {
     return reply(req, { error: '계정 요청 처리에 실패했습니다.' }, 400);
   }
 });
+

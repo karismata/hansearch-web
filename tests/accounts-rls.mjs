@@ -15,7 +15,7 @@ create function auth.uid() returns uuid language sql stable as $$select nullif(c
 create function auth.role() returns text language sql stable as $$select current_setting('request.jwt.claim.role',true)$$;
 grant usage on schema auth,storage to anon,authenticated,service_role;
 grant execute on all functions in schema auth to anon,authenticated,service_role;
-create table auth.users(id uuid primary key,email text,raw_user_meta_data jsonb default '{}');
+create table auth.users(id uuid primary key,email text,raw_user_meta_data jsonb default '{}',raw_app_meta_data jsonb default '{}');
 create table storage.objects(id uuid primary key default gen_random_uuid(),bucket_id text,owner_id text,owner uuid);
 alter table storage.objects enable row level security;
 grant select,insert,update,delete on storage.objects to anon,authenticated;
@@ -36,6 +36,15 @@ await db.exec(`insert into auth.users(id,email,raw_user_meta_data) values
 ('${member}','worker1@login.hansearch.invalid','{"role":"master","status":"approved"}'),
 ('${pending}','pending1@login.hansearch.invalid','{}');
 update public.member_profiles set role='master',status='approved' where id='${master}';`);
+await db.exec(await readFile(new URL('../supabase/migrations/20261103004717_hansearch_signup_origin_guard.sql',import.meta.url),'utf8'));
+await assert.rejects(()=>db.exec(`insert into auth.users(id,email,raw_user_meta_data) values(gen_random_uuid(),'bypass@login.hansearch.invalid','{"hansearch_registration":true,"role":"master"}')`));
+const registered='55555555-5555-4555-8555-555555555555';
+await db.query(`insert into auth.users(id,email,raw_app_meta_data,raw_user_meta_data) values($1,'newmember@login.hansearch.invalid','{"hansearch_registration":true}','{"role":"master","status":"approved"}')`,[registered]);
+const registeredProfile=(await db.query('select role,status from public.member_profiles where id=$1',[registered])).rows[0];
+assert.deepEqual(registeredProfile,{role:'member',status:'pending'});
+const unrelated='66666666-6666-4666-8666-666666666666';
+await db.query(`insert into auth.users(id,email) values($1,'other-app@example.com')`,[unrelated]);
+assert.equal((await db.query('select id from public.member_profiles where id=$1',[unrelated])).rows.length,0);
 async function as(role,id='') { await db.exec(`reset role; select set_config('request.jwt.claim.sub','${id}',false); select set_config('request.jwt.claim.role','${role}',false); set role ${role};`); }
 async function fails(sql) { await assert.rejects(()=>db.exec(sql)); }
 await as('authenticated',master);
@@ -48,6 +57,9 @@ await fails(`select public.hansearch_signup_allowed('fake-client')`);
 await fails(`select public.hansearch_set_ai_sync_token('test-token-at-least-32-characters-long')`);
 await fails('select * from public.info');
 await fails(`insert into public.info("내용") values('anonymous')`);
+await db.query("insert into storage.objects(bucket_id) values('unrelated-app')");
+assert.equal((await db.query("select count(*) as n from storage.objects where bucket_id='unrelated-app'")).rows[0].n,1);
+assert.equal((await db.query('select public.hansearch_is_approved() as approved')).rows[0].approved,false);
 await fails(`select public.hansearch_ai_snapshot('wrong-token',0,10)`);
 const snapshot=await db.query('select public.hansearch_ai_snapshot($1,0,10) as data',[token]);
 assert.equal(snapshot.rows[0].data.length,1);
@@ -82,14 +94,14 @@ assert.equal((await db.query('select * from public.info')).rows.length,0);
 await fails(`select public.hansearch_record_search('search',gen_random_uuid())`);
 await fails(`insert into storage.objects(bucket_id) values('hansearch-images')`);
 await as('postgres');
-assert.equal((await db.query('select owner_id from storage.objects')).rows[0].owner_id,master);
+assert.equal((await db.query("select owner_id from storage.objects where bucket_id='hansearch-images'")).rows[0].owner_id,master);
 await db.query('delete from auth.users where id=$1',[member]);
 assert.equal((await db.query('select created_by_username from public.info where id=$1',[record.id])).rows[0].created_by_username,'worker1');
 await as('authenticated',master);
 stats=(await db.query('select * from public.hansearch_account_statistics()')).rows.find(r=>r.user_id===member);
 assert.equal(stats.status,'deleted'); assert.equal(Number(stats.total_searches),2); assert.equal(Number(stats.data_created),1);
 await as('postgres');
-await fails(`insert into auth.users(id,email) values('44444444-4444-4444-8444-444444444444','worker1@login.hansearch.invalid')`);
+await fails(`insert into auth.users(id,email,raw_app_meta_data) values('44444444-4444-4444-8444-444444444444','worker1@login.hansearch.invalid','{"hansearch_registration":true}')`);
 await db.close();
 console.log('PASS: RLS, approval, role and author spoof prevention, idempotent statistics, deleted-token denial, storage ownership, and retained history');
 

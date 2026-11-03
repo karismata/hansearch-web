@@ -8,6 +8,10 @@ do $$ begin
     raise exception 'AI 동기화 키를 먼저 등록하세요.';
   end if;
 end $$;
+-- Shared Storage policies are evaluated for other buckets too. This helper
+-- returns only the caller's approval boolean and must be executable by anon
+-- so policies can preserve existing access to unrelated buckets.
+grant execute on function public.hansearch_is_approved() to anon;
 alter table public.info enable row level security;
 revoke all on public.info from anon,authenticated;
 grant select,insert,update,delete on public.info to authenticated;
@@ -30,3 +34,4 @@ create policy hansearch_storage_members on storage.objects for all to authentica
 using (bucket_id='hansearch-images' and (select public.hansearch_is_approved()))
 with check (bucket_id='hansearch-images' and (select public.hansearch_is_approved()));
 commit;
+

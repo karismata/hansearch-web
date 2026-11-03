@@ -12,7 +12,7 @@
 ## 준비
 
 1. DB 소유자 권한으로 `supabase/migrations/202611020001_accounts_prepare.sql`과 `20261103001003_hansearch_accounts_explicit_grants.sql`을 적용합니다. 이 단계는 기존 info 공개 정책을 변경하지 않습니다. 후자는 운영 프로젝트의 기본 함수 권한으로 붙는 익명 호출 권한을 명시적으로 회수합니다. 한주AI snapshot은 별도 연결키를 검증하므로 익명 API 키 호출을 유지합니다.
-2. Supabase Auth의 일반 공개 signUp을 비활성화합니다. 가입 신청은 아래 Edge Function의 서버 Admin API로만 처리합니다. 기존 인증/다른 앱이 이 프로젝트를 공유한다면 먼저 영향을 확인해야 합니다.
+2. 공유 프로젝트이므로 Auth 전체 공개 signUp 설정을 변경하지 않습니다. 마스터 생성 후 `accounts` Edge Function v2와 `20261103004717_hansearch_signup_origin_guard.sql`을 적용합니다. 한서치 내부 이메일 계정만 서버 Admin API의 `app_metadata.hansearch_registration=true` 표시를 요구합니다. 사용자가 편집하는 `user_metadata`로 이 검사를 통과할 수 없고, 생성된 프로필은 항상 일반 회원/승인 대기입니다. 다른 앱의 이메일과 기존 계정에는 영향을 주지 않습니다.
 3. `supabase/functions/accounts/index.ts`를 `accounts` Edge Function으로 배포합니다. `verify_jwt=false`를 사용합니다. 가입만 공개이며 나머지 동작은 함수 내부에서 실제 JWT와 마스터 프로필을 검증합니다.
 4. 소유자가 Supabase Authentication의 사용자 생성 화면에서 `master@login.hansearch.invalid` 계정을 직접 생성합니다. 비밀번호는 소유자가 비공개로 입력하고 이메일은 확인 완료로 지정합니다. 웹 로그인 아이디는 `master`입니다. 기본/공유 비밀번호는 만들지 않습니다.
 5. 생성한 Auth UUID를 `supabase/setup/bootstrap_master.sql`의 자리표시자에 넣어 소유자 권한으로 실행합니다. 회원 가입 메타데이터로는 마스터를 만들 수 없습니다.
@@ -23,7 +23,7 @@
 ## 전환
 
 1. 웹·Worker PR을 main에 병합하고 두 대상의 배포를 확인합니다. Worker의 기존 `AI_ACCESS_TOKEN` Secret은 유지합니다. 신규 서버 비밀키를 Cloudflare에 추가할 필요는 없습니다.
-2. `supabase/migrations/202611020002_accounts_activate.sql`을 적용합니다. 승인된 master와 AI 동기화 해시가 없으면 이 스크립트가 중단됩니다.
+2. `supabase/migrations/202611020002_accounts_activate.sql`을 적용합니다. 승인된 master와 AI 동기화 해시가 없으면 이 스크립트가 중단됩니다. 공유 Storage 정책이 다른 버킷에서도 평가되므로, 자기 승인 여부만 반환하는 `hansearch_is_approved()`의 익명 실행 권한은 유지합니다. 다른 버킷의 기존 접근을 막지 않는 회귀 검사를 포함합니다.
 3. 로그아웃 상태 및 미승인 상태의 데이터/API 접근 차단, 계정별 AI 결과 접근 격리, master 승인/삭제, 생성자 표시, 통계 기록을 운영 환경에서 확인합니다.
 
 ## 권한·집계 기준
