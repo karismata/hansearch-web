@@ -1,6 +1,6 @@
 import { useRef, useEffect } from 'react';
 import type { KeyboardEvent } from 'react';
-import { Search, X, Filter, Star, Sparkles, Loader2 } from 'lucide-react';
+import { Search, X, Filter, Star, Sparkles, Loader2, PlusCircle } from 'lucide-react';
 import type { SortOption } from '../types';
 
 interface SearchBarProps {
@@ -8,10 +8,11 @@ interface SearchBarProps {
   onChangeQuery: (q: string) => void;
   onSearchSubmit: () => void;
   onAiSearchSubmit: () => void;
+  onAddData: () => void;
   isAiSearching: boolean;
 }
 
-export function SearchBar({ query, onChangeQuery, onSearchSubmit, onAiSearchSubmit, isAiSearching }: SearchBarProps) {
+export function SearchBar({ query, onChangeQuery, onSearchSubmit, onAiSearchSubmit, onAddData, isAiSearching }: SearchBarProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   useEffect(() => {
     const handleKey = (event: globalThis.KeyboardEvent) => {
@@ -34,11 +35,12 @@ export function SearchBar({ query, onChangeQuery, onSearchSubmit, onAiSearchSubm
           placeholder="검색어 입력 (단축키: /)" className="w-full rounded-xl border-2 border-slate-200 bg-white py-2.5 pl-9 pr-10 text-base font-medium text-slate-800 placeholder-slate-400 focus:border-blue-500 focus:outline-none sm:text-sm" />
         {query && <button type="button" onClick={() => { onChangeQuery(''); inputRef.current?.focus(); }} aria-label="검색어 지우기" title="검색어 지우기" className="absolute inset-y-0 right-1 flex w-9 items-center justify-center text-slate-400 hover:text-slate-700"><X size={16} /></button>}
       </div>
-      <div className="flex shrink-0 items-center justify-end gap-1.5">
-        <button type="button" onClick={onSearchSubmit} className="flex items-center gap-1.5 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700"><Search size={16} /><span>검색</span></button>
-        <button type="button" onClick={onAiSearchSubmit} disabled={isAiSearching || !query.trim()} title="한주AI로 관련 자료 검색" className="flex items-center gap-1.5 rounded-xl bg-violet-600 px-3 py-2.5 text-sm font-semibold text-white hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-50">
-          {isAiSearching ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}<span>AI 검색</span>
+      <div className="grid grid-cols-3 gap-1.5 sm:flex sm:shrink-0">
+        <button type="button" onClick={onSearchSubmit} className="flex h-11 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl bg-blue-600 px-1.5 text-xs font-semibold text-white hover:bg-blue-700 sm:px-3 sm:text-sm"><Search size={16} className="hidden sm:block" /><span>검색</span></button>
+        <button type="button" onClick={onAiSearchSubmit} disabled={isAiSearching || !query.trim()} title="한주AI로 관련 자료 검색" className="flex h-11 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl bg-violet-600 px-1.5 text-xs font-semibold text-white hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-50 sm:px-3 sm:text-sm">
+          {isAiSearching ? <Loader2 size={16} className="hidden animate-spin sm:block" /> : <Sparkles size={16} className="hidden sm:block" />}<span>AI 검색</span>
         </button>
+        <button type="button" onClick={onAddData} className="flex h-11 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl bg-emerald-600 px-1.5 text-xs font-semibold text-white hover:bg-emerald-700 sm:px-3 sm:text-sm"><PlusCircle size={16} className="hidden sm:block" /><span>데이터 추가</span></button>
       </div>
     </div>
   );

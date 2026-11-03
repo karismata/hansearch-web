@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
-import { Settings, HelpCircle, PlusCircle, RefreshCw, Layers, Download, Ellipsis, Users, LogOut, KeyRound } from 'lucide-react';
+import { Settings, HelpCircle, RefreshCw, Layers, Download, Ellipsis, Users, LogOut, KeyRound } from 'lucide-react';
 
 interface HeaderProps {
   isConnected: boolean;
@@ -8,7 +8,6 @@ interface HeaderProps {
   filteredCount: number;
   isLoading: boolean;
   onRefresh: () => void;
-  onOpenAddModal: () => void;
   onOpenSettingsModal: () => void;
   onOpenHelpModal: () => void;
   username: string;
@@ -21,7 +20,7 @@ interface HeaderProps {
 }
 
 export function Header({ isConnected, totalCount, filteredCount, isLoading, onRefresh,
-  onOpenAddModal, onOpenSettingsModal, onOpenHelpModal, children, username, isMaster,
+  onOpenSettingsModal, onOpenHelpModal, children, username, isMaster,
   onOpenAccounts, onChangePassword, onSignOut, activityWarning }: HeaderProps) {
   const [open, setOpen] = useState(false);
   const root = useRef<HTMLDivElement>(null);
@@ -60,7 +59,6 @@ export function Header({ isConnected, totalCount, filteredCount, isLoading, onRe
               {activityWarning && <p role="status" className="mt-1 text-amber-700">{activityWarning}</p>}
             </div>
             <button type="button" onClick={() => action(onRefresh)} disabled={isLoading} className={`${itemClass} disabled:opacity-50`}><RefreshCw size={16} className={isLoading ? 'animate-spin' : ''} />새로고침</button>
-            <button type="button" onClick={() => action(onOpenAddModal)} className={itemClass}><PlusCircle size={16} />데이터 추가</button>
             {isMaster && <><button type="button" onClick={() => action(onOpenAccounts)} className={itemClass}><Users size={16} />계정 관리 · 통계</button><button type="button" onClick={() => action(onOpenSettingsModal)} className={itemClass}><Settings size={16} />설정</button></>}
             <button type="button" onClick={() => action(onChangePassword)} className={itemClass}><KeyRound size={16} />비밀번호 변경</button>
             <button type="button" onClick={() => action(onOpenHelpModal)} className={itemClass}><HelpCircle size={16} />도움말</button>
@@ -72,3 +70,4 @@ export function Header({ isConnected, totalCount, filteredCount, isLoading, onRe
     </header>
   );
 }
+
