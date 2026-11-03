@@ -335,10 +335,6 @@ export function App() {
         filteredCount={visibleItems.length}
         isLoading={isLoading}
         onRefresh={() => loadData()}
-        onOpenAddModal={() => {
-          setEditingItem(null);
-          setIsDataModalOpen(true);
-        }}
         onOpenSettingsModal={() => setIsSettingsModalOpen(true)}
         onOpenHelpModal={() => setIsHelpModalOpen(true)}
         username={profile.username}
@@ -359,6 +355,10 @@ export function App() {
           }}
           onSearchSubmit={handleSearchSubmit}
           onAiSearchSubmit={handleAiSearchSubmit}
+          onAddData={() => {
+            setEditingItem(null);
+            setIsDataModalOpen(true);
+          }}
           isAiSearching={isAiSearching}
         />
       </Header>
