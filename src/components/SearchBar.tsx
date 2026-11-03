@@ -32,8 +32,8 @@ export function SearchBar({ query, onChangeQuery, onSearchSubmit, onAiSearchSubm
       <div className="relative min-w-0 flex-1">
         <Search size={18} className="pointer-events-none absolute left-3 top-3 text-slate-400" />
         <input ref={inputRef} type="text" aria-label="검색어" value={query} onChange={(event) => onChangeQuery(event.target.value)} onKeyDown={handleKeyDown}
-          placeholder="검색어 입력 (단축키: /)" className="w-full rounded-xl border-2 border-slate-200 bg-white py-2.5 pl-9 pr-10 text-base font-medium text-slate-800 placeholder-slate-400 focus:border-blue-500 focus:outline-none sm:text-sm" />
-        {query && <button type="button" onClick={() => { onChangeQuery(''); inputRef.current?.focus(); }} aria-label="검색어 지우기" title="검색어 지우기" className="absolute inset-y-0 right-1 flex w-9 items-center justify-center text-slate-400 hover:text-slate-700"><X size={16} /></button>}
+          placeholder="검색어 입력 (단축키: /)" className="w-full rounded-xl border-2 border-slate-200 bg-white py-2.5 pl-9 pr-24 text-base font-medium text-slate-800 placeholder-slate-400 focus:border-blue-500 focus:outline-none sm:pr-10 sm:text-sm" />
+        {query && <button type="button" onClick={() => { onChangeQuery(''); inputRef.current?.focus(); }} aria-label="검색어 지우기" title="검색어 지우기" className="absolute inset-y-0 right-12 flex w-9 items-center justify-center text-slate-400 hover:text-slate-700 sm:right-1"><X size={16} /></button>}
       </div>
       <div className="grid grid-cols-3 gap-1.5 sm:flex sm:shrink-0">
         <button type="button" onClick={onSearchSubmit} className="flex h-11 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl bg-blue-600 px-1.5 text-xs font-semibold text-white hover:bg-blue-700 sm:px-3 sm:text-sm"><Search size={16} className="hidden sm:block" /><span>검색</span></button>

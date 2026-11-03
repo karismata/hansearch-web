@@ -43,12 +43,12 @@ export function Header({ isConnected, totalCount, filteredCount, isLoading, onRe
   return (
     <header className="sticky top-0 z-30 border-b border-slate-200 bg-white shadow-xs">
       <h1 className="sr-only">HanSearch</h1>
-      <div className="mx-auto flex max-w-7xl items-start gap-2 px-4 py-3 sm:items-center sm:gap-3 sm:px-6">
+      <div className="relative mx-auto flex max-w-7xl items-start gap-2 px-4 py-3 sm:items-center sm:gap-3 sm:px-6">
         <div className="hidden shrink-0 items-center gap-2 text-blue-600 sm:flex" aria-hidden="true">
           <Layers size={22} /><span className="hidden text-base font-black tracking-tight text-slate-800 lg:inline">HanSearch</span>
         </div>
         <div className="min-w-0 flex-1">{children}</div>
-        <div ref={root} className="relative shrink-0">
+        <div ref={root} className="absolute right-5 top-3.5 shrink-0 sm:relative sm:right-auto sm:top-auto">
           <button ref={trigger} type="button" onClick={() => setOpen((value) => !value)} aria-label="관리 메뉴" title="관리 메뉴" aria-expanded={open} aria-controls={menuId}
             className="flex h-11 w-10 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-800 focus-visible:outline-2 focus-visible:outline-blue-500"><Ellipsis size={23} /></button>
           {open && <nav id={menuId} aria-label="관리 메뉴 항목" className="absolute right-0 top-full z-40 mt-2 w-64 max-w-[calc(100vw-2rem)] rounded-xl border border-slate-200 bg-white p-2 shadow-xl">
