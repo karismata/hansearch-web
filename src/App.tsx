@@ -404,6 +404,7 @@ export function App() {
     <div className="min-h-screen bg-slate-100 flex flex-col selection:bg-blue-500 selection:text-white">
       {/* Header */}
       <Header
+        onCommentCountChange={handleCommentCountChange}
         isConnected={isConnected}
         totalCount={items.length}
         filteredCount={visibleItems.length}

@@ -1,7 +1,7 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs'), path = require('node:path'), Module = require('node:module'), ts = require('typescript');
 const { JSDOM } = require(process.env.JSDOM_MODULE || 'jsdom');
-const dom = new JSDOM('<div id="root"></div>', { url: 'https://hansearch-web.pages.dev' });
+const dom = new JSDOM('<div id="root"></div>', { url: 'https://hansearch-web.pages.dev', pretendToBeVisual:true });
 global.window=dom.window; global.document=dom.window.document; global.localStorage=dom.window.localStorage;
 Object.defineProperty(globalThis,'navigator',{value:dom.window.navigator,configurable:true}); global.IS_REACT_ACT_ENVIRONMENT=true;
 const React=require('react'),{act}=React,{createRoot}=require('react-dom/client');
@@ -14,7 +14,8 @@ function load(file,mocks={}) {
 const profile={id:'member',username:'worker',role:'member',status:'approved'};
 const account={'./components/AccountGate':{useAccount:()=>({profile,signOut:async()=>{}})}};
 const highlight={HighlightText:({text})=>text};
-const {AIAnswerPanel}=load('src/components/AIAnswerPanel.tsx',{'./HighlightText':highlight});
+const actualHighlight=load('src/components/HighlightText.tsx',{'../utils/helpers':{normalizeContentText:x=>x}});
+const {AIAnswerPanel}=load('src/components/AIAnswerPanel.tsx',{'./HighlightText':actualHighlight});
 let calls=[],saveCalls=[];
 const jobs=[];
 const blank=()=>null;
@@ -47,6 +48,9 @@ const resolve=async(index,value)=>act(async()=>jobs[index].resolve({query:jobs[i
   assert(container.textContent.includes('내부 자료 확인 답변'));assert(container.textContent.includes('외부 점검 방법'));assert(container.textContent.includes('https://example.com/manual'));
   assert(container.textContent.includes('본문 확인'));assert.equal(container.querySelector('blockquote').textContent,'실제 본문에 있는 점검 안내');
   assert.equal(container.querySelector('details').open,false,'Sources and raw evidence start collapsed');
+  const sourceLink=container.querySelector('a[href="https://example.com/manual"]');
+  assert(sourceLink && !sourceLink.closest('details'),'Reference links stay visible outside the collapsed raw excerpts');
+  assert.equal(sourceLink.target,'_blank');
   // Saving the web answer retains source URLs, with the existing correction flow.
   await act(async()=>[...container.querySelectorAll('button')].filter(b=>b.textContent==='답변 수정·저장')[1].click());
   assert(container.querySelector('textarea').value.includes('https://example.com/manual'));
@@ -67,11 +71,20 @@ const resolve=async(index,value)=>act(async()=>jobs[index].resolve({query:jobs[i
   await act(async()=>root.unmount());
 
   // Lazy comments, safe text, author-only editing, master deletion, and no mount-time fetch on cards.
-  let fetches=0,remoteTotal=3;const reported=[];const report=total=>reported.push(total);
-  const comment={id:'c1',info_id:1,author_id:'someone-else',author_username:'other',body:'<script>unsafe()</script>',created_at:'date',updated_at:null};
+  let fetches=0,replyFetches=0,remoteTotal=3;const reported=[];const report=total=>reported.push(total);let replyRows=[];const addedCalls=[];
+  const comment={id:'c1',info_id:1,parent_id:null,author_id:'someone-else',author_username:'other',body:'<script>unsafe()</script>',created_at:'date',updated_at:null};
+  const commentApi={
+    fetchComments:async()=>{fetches++;return {comments:[comment],total:remoteTotal,rootTotal:1};},
+    fetchReplies:async()=>{replyFetches++;return {comments:replyRows,total:replyRows.length};},
+    fetchCommentTotal:async()=>remoteTotal,
+    addComment:async(infoId,body,parentId)=>{addedCalls.push([infoId,body,parentId]);const added={...comment,id:'reply1',parent_id:parentId,author_id:profile.id,body};replyRows=[added,...replyRows];remoteTotal++;return added;},
+    editComment:async(id,body)=>({...comment,id,body,updated_at:'date'}),
+    deleteComment:async(id)=>{remoteTotal--;replyRows=replyRows.filter(row=>row.id!==id);},
+  };
+  const {CommentEntry}=load('src/components/CommentEntry.tsx',{'./AccountGate':{useAccount:()=>({profile})},'./HighlightText':highlight,'../utils/helpers':{formatDate:x=>x},'../lib/comments':commentApi});
+  const {CommentReplies}=load('src/components/CommentReplies.tsx',{'./AccountGate':{useAccount:()=>({profile})},'./CommentEntry':{CommentEntry},'../lib/comments':commentApi});
   const {ItemComments}=load('src/components/ItemComments.tsx',{
-    './AccountGate':{useAccount:()=>({profile})},'./HighlightText':highlight,
-    '../utils/helpers':{formatDate:x=>x},'../lib/comments':{fetchComments:async()=>{fetches++;return {comments:[comment],total:remoteTotal};},deleteComment:async()=>{}},
+    './AccountGate':{useAccount:()=>({profile})},'./CommentEntry':{CommentEntry},'./CommentReplies':{CommentReplies},'../lib/comments':commentApi,
   });
   const {ItemCard}=load('src/components/ItemCard.tsx',{
     './ItemComments':{ItemComments},'./HighlightText':highlight,
@@ -84,11 +97,41 @@ const resolve=async(index,value)=>act(async()=>jobs[index].resolve({query:jobs[i
   assert.equal(reported.at(-1),3);
   const section=container.querySelector('section');assert.equal(section.querySelector('script'),null);assert(section.textContent.includes('<script>'));
   assert(![...section.querySelectorAll('button')].some(b=>b.textContent==='수정'||b.textContent==='삭제'));
+  assert.equal(replyFetches,0,'Replies stay lazy');
+  await click('답글 보기·작성');assert.equal(replyFetches,1);
+  const replyInput=container.querySelector('textarea[aria-label="답글 내용"]');
+  await act(async()=>{Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype,'value').set.call(replyInput,'현장에서 확인한 답글');replyInput.dispatchEvent(new window.Event('input',{bubbles:true}));});
+  await act(async()=>replyInput.closest('form').dispatchEvent(new window.Event('submit',{bubbles:true,cancelable:true})));
+  assert.deepEqual(addedCalls[0],[1,'현장에서 확인한 답글','c1']);assert.equal(reported.at(-1),4);
+  assert(container.querySelector('[aria-label="답글 목록"]').textContent.includes('현장에서 확인한 답글'));
+  window.confirm=()=>true;
+  await act(async()=>[...container.querySelector('[data-comment-id="reply1"]').querySelectorAll('button')].find(b=>b.textContent==='삭제').click());
+  assert.equal(reported.at(-1),3,'Reply deletion updates the total badge');
   profile.role='master';await act(async()=>root.render(React.createElement(ItemComments,{infoId:1,onTotalChange:report})));
   assert([...container.querySelectorAll('button')].some(b=>b.textContent==='삭제'));assert(![...container.querySelectorAll('button')].some(b=>b.textContent==='수정'));
   comment.author_id=profile.id;await click('새로고침');await click('수정');assert.equal(container.querySelector('textarea[aria-label="댓글 수정"]').value,comment.body);
   await click('취소');remoteTotal=5;await click('새로고침');assert.equal(reported.at(-1),5);
   window.confirm=()=>true;await click('삭제');assert.equal(reported.at(-1),4,'Delete immediately updates parent count');
+  await act(async()=>root.unmount());
+
+  window.HTMLDialogElement.prototype.showModal=function(){this.setAttribute('open','');};
+  let unread=2,notificationFetches=0,readIds=[];const notice={id:'n1',info_id:1,comment_id:'reply1',actor_username:'other',info_title:'자료 제목',kind:'reply',created_at:'date',read_at:null};
+  const {NotificationBell}=load('src/components/NotificationBell.tsx',{
+    '../lib/notifications':{fetchUnreadCount:async()=>unread,fetchNotifications:async()=>{notificationFetches++;return {notifications:[notice,{...notice,id:'n2'}].map(row=>({...row,read_at:readIds.includes(row.id)?'date':null})),total:2};},
+      markNotificationRead:async id=>{readIds.push(id);unread--;},markNotificationsRead:async ids=>{readIds.push(...ids);unread-=ids.length;},
+      fetchNotificationContext:async()=>({item:{id:1,키워드2:'자료 제목',내용:'자료 내용'},threadId:'c1'})},
+    '../utils/helpers':{formatDate:x=>x,normalizeContentText:x=>x},'./HighlightText':highlight,
+    './ItemComments':{ItemComments:props=>React.createElement('p',{'data-thread':props.threadId||'all'},'알림의 댓글')},
+  });
+  root=createRoot(container);await act(async()=>root.render(React.createElement(NotificationBell)));
+  assert.equal(notificationFetches,0,'Only unread count is fetched before opening the bell');
+  await act(async()=>container.querySelector('[aria-label="알림 2개 안 읽음"]').click());assert.equal(notificationFetches,1);
+  await act(async()=>[...container.querySelectorAll('button')].find(b=>b.textContent.includes('other님이 내 댓글에 답글')).click());
+  assert.deepEqual(readIds,['n1']);assert(container.querySelector('dialog[open]'));assert.equal(container.querySelector('[data-thread]').dataset.thread,'c1');
+  await click('이 자료의 모든 댓글 보기');assert.equal(container.querySelector('[data-thread]').dataset.thread,'all');
+  await act(async()=>container.querySelector('[aria-label="알림 자료 닫기"]').click());assert.equal(document.body.style.overflow,'');
+  await act(async()=>container.querySelector('[aria-label="알림 1개 안 읽음"]').click());
+  await click('표시된 알림 읽음');assert.equal(unread,0);
   await act(async()=>root.unmount());dom.window.close();
   console.log('PASS: manual web during analysis, internal answer preserved, cited corrections saved, stale results suppressed, lazy comments and author/master controls');
 })().catch(error=>{console.error(error);process.exit(1);});
