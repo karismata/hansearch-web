@@ -284,12 +284,77 @@ class FallbackTests(unittest.TestCase):
             result = server.web_search_answer('질문')
         self.assertLess(len(result['summary']), 150)
 
-    def test_snippets_are_not_mislabeled_as_read_page_bodies(self):
+    def test_snippets_are_usable_but_never_mislabeled_as_read_page_bodies(self):
         response = {'results': [{'title': '소개', 'url': 'https://example.com/manual', 'content': BODY}]}
         with patch.object(server, 'request_json', return_value=response), patch.object(server, 'TAVILY_API_KEY', 'synthetic'), patch.object(server, 'ollama_answer', return_value=WEB_ANSWER):
             result = server.web_search_answer('질문')
-        self.assertEqual(result['status'], 'error')
+        self.assertEqual(result['status'], 'complete')
+        self.assertEqual(result['evidence_level'], 'snippet')
+        self.assertIn('원문 미확인', result['summary'])
         self.assertFalse(result['sources'][0]['body_checked'])
+
+    def test_relevant_printer_snippet_beats_irrelevant_full_dictionary(self):
+        response = {'results': [
+            {'title': 'Dictionary of e-business', 'url': 'https://example.com/dictionary', 'raw_content': '전자상거래와 마케팅 용어를 설명하는 사전'},
+            {'title': 'POS 프린터 종이 공급 문제 해결', 'url': 'https://example.com/printer', 'content': '프린터 전원을 끄고 용지 장착과 케이블을 확인하세요.'},
+        ]}
+        with patch.object(server, 'request_json', return_value=response) as request, patch.object(server, 'TAVILY_API_KEY', 'synthetic'), patch.object(server, 'ollama_answer', return_value=WEB_ANSWER) as model:
+            result = server.web_search_answer('포스 프린터 종이가 안나와')
+        self.assertEqual(result['status'], 'complete')
+        self.assertEqual(result['sources'][0]['url'], 'https://example.com/printer')
+        self.assertNotIn('Dictionary', model.call_args.args[1])
+        request.assert_called_once()
+
+    def test_useful_sentence_is_not_discarded_for_crossing_85_characters(self):
+        answer = json.loads(WEB_ANSWER)
+        answer['checks'][0] = '용지가 올바르게 장착되어 있는지 확인하고 케이블 연결 상태도 점검하세요. ' * 3
+        self.assertGreater(len(answer['checks'][0]), 85)
+        with patch.object(server, 'ollama_answer', return_value=json.dumps(answer)) as model:
+            result = server.summarize_web_answer('프린터', [{'title': '매뉴얼', 'url': 'https://example.com/printer', 'content': BODY, 'body_checked': True}])
+        self.assertEqual(result['status'], 'complete')
+        model.assert_called_once()
+        self.assertIn(answer['checks'][0].strip(), result['summary'])
+
+    def test_fenced_json_is_accepted(self):
+        with patch.object(server, 'ollama_answer', return_value='```json\n' + WEB_ANSWER + '\n```'):
+            result = server.summarize_web_answer('프린터', [{'title': '매뉴얼', 'url': 'https://example.com/printer', 'content': BODY, 'body_checked': True}])
+        self.assertEqual(result['status'], 'complete')
+
+    def test_generation_limit_retries_with_larger_local_budget(self):
+        with patch.object(server, 'ollama_answer', side_effect=[server.RequestFailure('output_limit'), WEB_ANSWER]) as model:
+            result = server.summarize_web_answer('프린터', [{'title': '매뉴얼', 'url': 'https://example.com/printer', 'content': BODY, 'body_checked': True}])
+        self.assertEqual(result['status'], 'complete')
+        self.assertGreater(model.call_args_list[1].kwargs['max_tokens'], model.call_args_list[0].kwargs['max_tokens'])
+
+    def test_model_timeout_is_distinct_from_format_failure_without_raw_output(self):
+        with patch.object(server, 'ollama_answer', side_effect=server.RequestFailure('timeout')) as model, contextlib.redirect_stdout(io.StringIO()) as output:
+            result = server.summarize_web_answer('프린터', [])
+        self.assertEqual(result['error_code'], 'model_timeout')
+        self.assertIn('시간이 초과', result['summary'])
+        self.assertIn('model_timeout', output.getvalue())
+        model.assert_called_once()
+
+    def test_model_transport_reports_truncation_only_for_web_complete_check(self):
+        with patch.object(server, 'request_json', return_value={'done_reason': 'length', 'message': {'content': '{"checks":'}}):
+            self.assertEqual(server.ollama_answer('s', 'c'), '{"checks":')
+            with self.assertRaises(server.RequestFailure) as failure:
+                server.ollama_answer('s', 'c', require_complete=True)
+        self.assertEqual(failure.exception.category, 'output_limit')
+
+    def test_model_http_failure_keeps_safe_status_instead_of_generic_format_error(self):
+        with patch.object(server, 'ollama_answer', side_effect=server.RequestFailure('http', 404)) as model:
+            result = server.summarize_web_answer('프린터', [])
+        self.assertEqual(result['error_code'], 'model_http_404')
+        self.assertIn('model_http_404', result['message'])
+        model.assert_called_once()
+
+    def test_local_model_preflight_uses_no_search_sync_port_or_private_data(self):
+        with patch.object(server.sys, 'argv', ['server.py', '--check-answer']), patch.object(server, 'load_dotenv'), \
+                patch.object(server, 'ollama_answer', return_value=WEB_ANSWER), patch.object(server, 'fetch_web_candidates') as web, \
+                patch.object(server, 'sync_data') as sync, patch.object(server, 'ThreadingHTTPServer') as http_server, contextlib.redirect_stdout(io.StringIO()) as output:
+            server.main()
+        self.assertIn('형식 검사: 성공', output.getvalue())
+        web.assert_not_called(); sync.assert_not_called(); http_server.assert_not_called()
 
     def test_symptom_excerpt_finds_body_beyond_long_navigation(self):
         text = '메뉴 회사소개 고객지원\n' * 300 + BODY + '\n끝'

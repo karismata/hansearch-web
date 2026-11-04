@@ -38,6 +38,8 @@ export interface WebAnswer {
   summary: string;
   message?: string;
   cached?: boolean;
+  evidence_level?: 'body' | 'snippet' | 'general';
+  error_code?: string;
   sources: Array<{ number: number; title: string; url: string; body_checked?: boolean; evidence_quote?: string; body_excerpt?: string }>;
 }
 
