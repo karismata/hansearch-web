@@ -63,12 +63,19 @@ export function AIAnswerPanel({ result, onSave, variant = 'internal' }: Props) {
         <>
           <div className="text-sm text-slate-700 whitespace-pre-wrap break-words"><HighlightText query="" text={displayAnswer?.trim() || '관련 자료는 찾았지만 한주AI 답변이 비어 있습니다. 답변을 직접 수정해 저장할 수 있습니다.'} /></div>
           {variant === 'internal' && result.coverage === 'partial' && <p className="mt-3 text-xs text-violet-700">일부 내용만 내부 자료로 확인했습니다. 부족한 내용은 인터넷에서 보완 검색할 수 있습니다.</p>}
-          {(sources.length > 0 || legacyDump) && <details className="mt-3 border-t border-violet-200 pt-3 text-xs text-slate-600">
+          {sources.length > 0 && <div className="mt-3 border-t border-violet-200 pt-3 text-xs text-slate-600">
+            <p className="mb-2 font-semibold text-violet-700">참고 링크{result.web?.cached ? ' · 최근 검색 재사용' : ''}</p>
+            <div className="space-y-2">{sources.map(source => <div key={source.number}>
+              <p className="font-medium">[{source.number}] {source.title}</p>
+              <HighlightText query="" text={source.url} />
+            </div>)}</div>
+          </div>}
+          {(sources.some(source => source.body_excerpt || source.evidence_quote) || legacyDump) && <details className="mt-3 text-xs text-slate-600">
             <summary className="cursor-pointer font-semibold text-violet-700">출처·원문 보기{sources.length > 0 ? ` (${sources.length})` : ''}{result.web?.cached ? ' · 최근 검색 재사용' : ''}</summary>
             <div className="mt-3 space-y-3">{sources.map(source => <div key={source.number}>
               {source.body_checked !== undefined && <span className="mb-1 inline-block rounded bg-white px-1.5 py-0.5 text-[11px] text-slate-500">{source.body_checked ? '본문 확인' : '검색 요약만 확인'}</span>}
               {(source.body_excerpt || source.evidence_quote) && <blockquote className="mb-1 whitespace-pre-wrap border-l-2 border-violet-200 pl-2 text-slate-700">{source.body_excerpt || source.evidence_quote}</blockquote>}
-              <div><HighlightText query="" text={`[웹 자료 ${source.number}] ${source.title}\n${source.url}`} /></div>
+              <p>[웹 자료 {source.number}] {source.title}</p>
             </div>)}
             {legacyDump && <div className="whitespace-pre-wrap break-words text-slate-500">{result.summary}</div>}</div>
           </details>}
