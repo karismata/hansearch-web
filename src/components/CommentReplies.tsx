@@ -10,7 +10,7 @@ export function CommentReplies({ infoId, parentId, defaultOpen = false, onCountD
   const [open, setOpen] = useState(defaultOpen);
   const [rows, setRows] = useState<InfoComment[]>([]);
   const [total, setTotal] = useState<number | null>(null);
-  const [loading, setLoading] = useState(defaultOpen);
+  const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [body, setBody] = useState('');
@@ -21,15 +21,14 @@ export function CommentReplies({ infoId, parentId, defaultOpen = false, onCountD
     if (focusComment?.info_id === infoId && focusComment.parent_id === parentId) setOpen(true);
   }, [focusComment, infoId, parentId]);
   useEffect(() => {
-    if (!open) return;
     let active = true;
     setLoading(true); setError('');
     fetchReplies(infoId, parentId).then(page => {
-      if (active) { setRows(page.comments); setTotal(page.total); }
-    }).catch(() => { if (active) setError('답글을 불러오지 못했습니다. 다시 시도해 주세요.'); })
+      if (active) { setRows(page.comments); setTotal(page.total); if (page.total > 0 || defaultOpen) setOpen(true); }
+    }).catch(() => { if (active) { setError('답글을 불러오지 못했습니다. 다시 시도해 주세요.'); setOpen(true); } })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
-  }, [open, infoId, parentId, retry]);
+  }, [infoId, parentId, defaultOpen, retry]);
   const mutate = async (action: () => Promise<void>) => {
     setBusy(true); setError('');
     try { await action(); }
