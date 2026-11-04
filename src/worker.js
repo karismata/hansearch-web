@@ -78,6 +78,7 @@ export default {
       } else {
         const jobMatch = url.pathname.match(/^\/api\/ai\/jobs\/([\w-]+)$/);
         const completeMatch = url.pathname.match(/^\/api\/ai\/agent\/complete\/([\w-]+)$/);
+        const progressMatch = url.pathname.match(/^\/api\/ai\/agent\/progress\/([\w-]+)$/);
         if (jobMatch && request.method === "GET") {
           if (!isAllowedOrigin(request.headers.get("Origin") || "")) {
             return jsonResponse(request, { error: "Origin not allowed" }, 403);
@@ -87,6 +88,10 @@ export default {
         else if (completeMatch && request.method === "POST") {
           isAgentRequest = true;
           targetPath = `/complete/${completeMatch[1]}`;
+        }
+        else if (progressMatch && request.method === "POST") {
+          isAgentRequest = true;
+          targetPath = `/progress/${progressMatch[1]}`;
         }
         else return jsonResponse(request, { error: "Not found" }, 404);
       }
@@ -122,6 +127,12 @@ export class AIQueue {
       const body = await request.json().catch(() => null);
       const query = typeof body?.query === "string" ? body.query.trim() : "";
       if (!query || query.length > 1000) return Response.json({ error: "검색어는 1~1000자여야 합니다." }, { status: 400 });
+      const mode = body?.mode === undefined ? 'auto' : body.mode;
+      if (!['auto', 'web'].includes(mode)) return Response.json({ error: '잘못된 검색 방식입니다.' }, { status: 400 });
+      if (mode === 'web') {
+        const agent = await this.state.storage.get('agent:capabilities');
+        if (!agent || agent.version < 2 || Date.now() - agent.seenAt > 8 * 60 * 1000) return Response.json({ error: '한주AI 서버 업데이트 또는 재시작이 필요합니다.' }, { status: 503 });
+      }
 
       const now = Date.now();
       const existing = await this.state.storage.list({ prefix: "job:" });
@@ -143,8 +154,15 @@ export class AIQueue {
       currentRate.count += 1;
       await this.state.storage.put(rateKey, currentRate);
 
-      const job = { id: crypto.randomUUID(), query, ownerId, status: "pending", createdAt: now };
+      const job = { id: crypto.randomUUID(), query, mode, ownerId, status: "pending", createdAt: now };
       await this.state.storage.put(`job:${job.id}`, job);
+      if (mode === 'web' && typeof body?.parent_id === 'string') {
+        const parent = await this.state.storage.get(`job:${body.parent_id}`);
+        if (parent && parent.ownerId === ownerId && parent.query === query && ['pending','processing'].includes(parent.status)) {
+          parent.externalWebRequested = true;
+          await this.state.storage.put(`job:${parent.id}`, parent);
+        }
+      }
       const existingAlarm = await this.state.storage.getAlarm();
       const nextAlarm = Math.min(now + JOB_TTL_MS, currentRate.resetAt, existingAlarm ?? Infinity);
       await this.state.storage.setAlarm(nextAlarm);
@@ -153,24 +171,39 @@ export class AIQueue {
 
     if (url.pathname === "/next" && request.method === "GET") {
       const now = Date.now();
+      const version = Number(request.headers.get('X-HanSearch-AI-Version') || 1);
+      await this.state.storage.put('agent:capabilities', { version, seenAt: now });
       const entries = await this.state.storage.list({ prefix: "job:" });
       const jobs = [...entries.entries()]
         .map(([key, job]) => ({ key, job }))
-        .filter(({ job }) => job.status === "pending" || (job.status === "processing" && now - job.startedAt > 3 * 60 * 1000))
-        .sort((a, b) => a.job.createdAt - b.job.createdAt);
+        .filter(({ job }) => now - job.createdAt < JOB_TTL_MS && (job.mode !== 'web' || version >= 2) &&
+          (job.status === "pending" || (job.status === "processing" && now - job.startedAt > 8 * 60 * 1000)))
+        .sort((a, b) => Number(b.job.mode === 'web') - Number(a.job.mode === 'web') || a.job.createdAt - b.job.createdAt);
       if (!jobs.length) return new Response(null, { status: 204 });
       const { key, job } = jobs[0];
       job.status = "processing";
       job.startedAt = now;
       await this.state.storage.put(key, job);
-      return Response.json({ id: job.id, query: job.query });
+      return Response.json({ id: job.id, query: job.query, mode: job.mode || 'auto' });
     }
 
     const getMatch = url.pathname.match(/^\/jobs\/([\w-]+)$/);
     if (getMatch && request.method === "GET") {
       const job = await this.state.storage.get(`job:${getMatch[1]}`);
       if (!job || job.ownerId !== request.headers.get('X-HanSearch-User')) return Response.json({ error: "검색 요청을 찾을 수 없습니다." }, { status: 404 });
-      return Response.json({ id: job.id, status: job.status, result: job.result || null, error: job.error || null });
+      return Response.json({ id: job.id, status: job.status, stage: job.stage || null, result: job.result || null, error: job.error || null });
+    }
+
+    const progressMatch = url.pathname.match(/^\/progress\/([\w-]+)$/);
+    if (progressMatch && request.method === 'POST') {
+      const key = `job:${progressMatch[1]}`;
+      const job = await this.state.storage.get(key);
+      if (!job || job.status !== 'processing') return Response.json({ error: '검색 요청을 찾을 수 없습니다.' }, { status: 404 });
+      const body = await request.json().catch(() => null);
+      if (['retrieving','analyzing','web_search','web_analysis'].includes(body?.stage)) job.stage = body.stage;
+      if (body?.result) job.result = body.result;
+      await this.state.storage.put(key, job);
+      return Response.json({ status: job.status, external_web_requested: Boolean(job.externalWebRequested) });
     }
 
     const completeMatch = url.pathname.match(/^\/complete\/([\w-]+)$/);
@@ -207,4 +240,5 @@ export class AIQueue {
     if (Number.isFinite(nextExpiry)) await this.state.storage.setAlarm(nextExpiry);
   }
 }
+
 

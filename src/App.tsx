@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import type { 
   InfoItem, 
   SupabaseConfig, 
@@ -36,7 +36,7 @@ import { ImageLightbox } from './components/ImageLightbox';
 import { AIAnswerPanel } from './components/AIAnswerPanel';
 import { fetchSavedAiAnswer, saveAiAnswer } from './lib/savedAiAnswers';
 import { AlertTriangle, Plus, SearchX, Loader2 } from 'lucide-react';
-import { clearStoredAiToken, runAISearch, type AISearchResult, type AISearchStatus } from './lib/localAi';
+import { clearStoredAiToken, runAISearch, type AISearchResult, type AISearchStatus, type WebAnswer } from './lib/localAi';
 
 
 
@@ -80,6 +80,26 @@ export function App() {
   const [isAiSearchMode, setIsAiSearchMode] = useState(false);
   const [aiSearchResult, setAiSearchResult] = useState<AISearchResult | null>(null);
   const [aiSearchError, setAiSearchError] = useState<string | null>(null);
+  const [webAnswer, setWebAnswer] = useState<WebAnswer | null>(null);
+  const [isWebSearching, setIsWebSearching] = useState(false);
+  const [webSearchStatus, setWebSearchStatus] = useState<AISearchStatus>('pending');
+  const [webSearchError, setWebSearchError] = useState('');
+  const [aiQuery, setAiQuery] = useState('');
+  const requestVersion = useRef(0);
+  const aiAbort = useRef<AbortController | null>(null);
+  const webAbort = useRef<AbortController | null>(null);
+  const webStarted = useRef(false);
+  const aiJobId = useRef<string | undefined>(undefined);
+
+  const resetAiRequests = () => {
+    requestVersion.current += 1;
+    aiAbort.current?.abort(); webAbort.current?.abort();
+    webStarted.current = false;
+    aiJobId.current = undefined;
+    setIsAiSearching(false); setIsWebSearching(false);
+    setWebAnswer(null); setWebSearchError(''); setAiQuery('');
+  };
+  useEffect(() => () => { aiAbort.current?.abort(); webAbort.current?.abort(); }, []);
 
   // Modal States
   const [isDataModalOpen, setIsDataModalOpen] = useState(false);
@@ -153,6 +173,7 @@ export function App() {
 
   // Search Submit
   const handleSearchSubmit = () => {
+    resetAiRequests();
     if (searchInput.trim()) logSearch('search');
     setIsAiSearchMode(false);
     setAiSearchResult(null);
@@ -163,6 +184,11 @@ export function App() {
   const handleAiSearchSubmit = async () => {
     const query = searchInput.trim();
     if (!query) return;
+    resetAiRequests();
+    const version = requestVersion.current;
+    const controller = new AbortController();
+    aiAbort.current = controller;
+    setAiQuery(query);
     logSearch('ai_search');
     setActiveSearch(query);
     setIsAiSearchMode(true);
@@ -173,23 +199,57 @@ export function App() {
     setIsAiSearching(true);
     try {
       const saved = await fetchSavedAiAnswer(query, config);
+      if (version !== requestVersion.current) return;
       if (saved) {
         setItems((prev) => [saved, ...prev.filter((item) => item.id !== saved.id)]);
         setAiSearchResult({ query, summary: saved.내용, saved_answer: true,
           results: saved.id ? [{ id: saved.id, score: 1 }] : [], synced_count: items.length });
       } else {
-        setAiSearchResult(await runAISearch(query, setAiSearchStatus));
+        const result = await runAISearch(query, status => {
+          if (version === requestVersion.current) setAiSearchStatus(status);
+        }, { signal: controller.signal, onCreated: id => {
+          if (version === requestVersion.current) aiJobId.current = id;
+        }, onProgress: result => {
+          if (version === requestVersion.current) setAiSearchResult(result);
+        } });
+        if (version !== requestVersion.current) return;
+        setAiSearchResult(result);
+        if (!webStarted.current && result.web) setWebAnswer(result.web);
       }
     } catch (error: any) {
+      if (version !== requestVersion.current || controller.signal.aborted) return;
       setAiSearchError(error?.message || 'AI 검색에 실패했습니다.');
-      setIsAiSearchMode(false);
     } finally {
-      setIsAiSearching(false);
+      if (version === requestVersion.current) setIsAiSearching(false);
+    }
+  };
+
+  const handleWebSearch = async () => {
+    if (!aiQuery || webStarted.current && isWebSearching) return;
+    const version = requestVersion.current;
+    webStarted.current = true;
+    webAbort.current?.abort();
+    const controller = new AbortController(); webAbort.current = controller;
+    setIsWebSearching(true); setWebSearchError(''); setWebSearchStatus('pending');
+    try {
+      const result = await runAISearch(aiQuery, status => {
+        if (version === requestVersion.current) setWebSearchStatus(status);
+      }, { mode: 'web', signal: controller.signal, parentId: aiJobId.current });
+      if (version !== requestVersion.current) return;
+      if (!result.web) throw new Error('한주AI 서버를 최신 버전으로 업데이트한 뒤 다시 시도해 주세요.');
+      setWebAnswer(result.web);
+    } catch (error) {
+      if (version === requestVersion.current && !controller.signal.aborted) setWebSearchError(error instanceof Error ? error.message : '인터넷 검색에 실패했습니다.');
+    } finally {
+      if (version === requestVersion.current) setIsWebSearching(false);
     }
   };
 
   const handleSaveAiCorrection = async (question: string, answer: string) => {
+    const version = requestVersion.current;
     const saved = await saveAiAnswer(question, answer, config);
+    if (version !== requestVersion.current) return;
+    resetAiRequests(); setAiQuery(question.trim());
     setItems((prev) => [saved, ...prev.filter((item) => item.id !== saved.id)]);
     setSearchInput(question.trim());
     setActiveSearch(question.trim());
@@ -199,6 +259,7 @@ export function App() {
 
   // Quick Tag Click
   const handleSelectTag = (tag: string) => {
+    resetAiRequests();
     if (tag.trim()) logSearch('search');
     setIsAiSearchMode(false);
     setAiSearchResult(null);
@@ -358,6 +419,7 @@ export function App() {
         <SearchBar
           query={searchInput}
           onChangeQuery={(q) => {
+            resetAiRequests();
             setSearchInput(q);
             if (q === '') setActiveSearch('');
             setIsAiSearchMode(false);
@@ -443,7 +505,7 @@ export function App() {
               <Loader2 size={18} className="animate-spin shrink-0" />
               <div>
                 <p className="text-sm font-semibold">
-                  {aiSearchStatus === 'pending' ? '한주AI 연결 대기 중' : '한주AI가 자료를 분석 중'}
+                  {aiSearchStatus === 'pending' ? '한주AI 연결 대기 중' : aiSearchStatus === 'web_search' ? '내부 근거가 없어 인터넷 자료를 찾는 중' : aiSearchStatus === 'web_analysis' ? '한주AI가 인터넷 자료를 분석 중' : '한주AI가 내부 자료를 분석 중'}
                   <span className="ml-2 text-xs font-medium text-violet-600">{aiSearchElapsedSeconds}초</span>
                 </p>
                 <p className="text-xs text-violet-600 mt-0.5">첫 검색은 준비하는 데 더 걸릴 수 있습니다. 완료되면 답변이 표시됩니다.</p>
@@ -455,6 +517,18 @@ export function App() {
             <AIAnswerPanel key={aiSearchResult.query} result={aiSearchResult} onSave={handleSaveAiCorrection} />
           )}
 
+          {isAiSearchMode && aiQuery && <div className="mb-3 flex flex-wrap items-center gap-3">
+            <button type="button" onClick={() => void handleWebSearch()} disabled={isWebSearching || (!webStarted.current && isAiSearching && ['web_search','web_analysis'].includes(aiSearchStatus))} className="rounded-xl border border-blue-200 bg-white px-4 py-2.5 text-sm font-semibold text-blue-700 hover:bg-blue-50 disabled:opacity-50">
+              {isWebSearching ? webSearchStatus === 'pending' ? '한주AI 연결 대기 중...' : webSearchStatus === 'web_analysis' ? '인터넷 자료 분석 중...' : '인터넷 검색 중...' : webAnswer ? '인터넷에서 다시 확인' : aiSearchResult?.coverage === 'partial' ? '인터넷에서 보완 검색' : '인터넷에서 추가 확인'}
+            </button>
+            <span className="text-xs text-slate-500">내부 답변이 부족하면 인터넷 자료로 보완할 수 있습니다.</span>
+          </div>}
+          {webSearchError && <p role="alert" className="mb-3 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">{webSearchError}</p>}
+          {isAiSearchMode && webAnswer && <>
+            {webAnswer.message && <p role="status" className="mb-3 rounded-xl border border-blue-200 bg-blue-50 p-3 text-sm text-slate-700">{webAnswer.message}</p>}
+            {(webAnswer.summary || webAnswer.sources.length > 0) && <AIAnswerPanel key={`web-${aiQuery}-${webAnswer.summary}`} variant="web" result={{ query: aiQuery, summary: webAnswer.summary || webAnswer.message || '', results: [], synced_count: items.length, web: webAnswer }} onSave={handleSaveAiCorrection} />}
+          </>}
+
           {/* Loading State */}
           {isLoading && (
             <div className="flex flex-col items-center justify-center py-20 bg-white rounded-2xl border border-slate-200 shadow-xs">
@@ -465,7 +539,7 @@ export function App() {
           )}
 
           {/* Empty State */}
-          {!isLoading && !isAiSearching && visibleItems.length === 0 && (
+          {!isLoading && !isAiSearching && !isAiSearchMode && visibleItems.length === 0 && (
             <div className="flex flex-col items-center justify-center py-16 px-4 bg-white rounded-2xl border border-slate-200 shadow-xs text-center">
               <div className="p-4 bg-slate-50 text-slate-400 rounded-2xl mb-3">
                 <SearchX size={40} />
@@ -485,6 +559,7 @@ export function App() {
                 {activeSearch || isAiSearchMode ? (
                   <button
                     onClick={() => {
+                      resetAiRequests();
                       setSearchInput('');
                       setActiveSearch('');
                       setSelectedCategory('');

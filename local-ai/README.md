@@ -1,5 +1,7 @@
 # HanSearch Local AI (Mac mini)
 
+인터넷 보완 검색 및 기존 설치 업데이트: [내부 우선 AI 검색·댓글 안내](../docs/ai-web-and-comments.md). 기존 `.env`에 `OLLAMA_API_KEY`를 추가하며, 기존 설정 파일을 예제로 덮어쓰지 않습니다.
+
 This service is the Mac mini side of HanSearch AI search. It reads the existing
 Supabase `info` table, creates local Ollama embeddings, and periodically replaces
 its local snapshot only after a complete successful sync. Deleted Supabase rows
@@ -51,3 +53,4 @@ operation fails, the prior local snapshot is retained. A later successful sync
 reconciles additions, edits, and deletions. The Worker relay is available only
 after its AIQueue Durable Object migration is deployed and the `AI_ACCESS_TOKEN`
 Worker secret is configured.
+

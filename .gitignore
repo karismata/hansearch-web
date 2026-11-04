@@ -38,6 +38,11 @@ android/local.properties
 
 # Local AI data and credentials
 local-ai/.env
+local-ai/.env.*
+!local-ai/.env.example
+local-ai/*.web-backup
+local-ai/.server-update-*.py
 local-ai/data/
 __pycache__/
 *.py[cod]
+
