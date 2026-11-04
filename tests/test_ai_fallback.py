@@ -315,6 +315,83 @@ class FallbackTests(unittest.TestCase):
         model.assert_called_once()
         self.assertIn(answer['checks'][0].strip(), result['summary'])
 
+    def test_pos_power_question_never_cites_printer_feed_article_with_power_words(self):
+        question = '포스 전원이 안켜져'
+        response = {'results': [
+            {'title': 'POS 프린터 종이 공급 문제 해결 가이드', 'url': 'https://example.com/printer-feed',
+             'raw_content': '전원 어댑터의 표시등을 확인하고 전원을 껐다 켜세요. 프린터 용지를 다시 장착하세요.'},
+            {'title': '포스가 안켜져, AS 전 확인', 'url': 'https://example.com/pos-power', 'content': BODY},
+        ]}
+        with patch.object(server, 'request_json', return_value=response) as request, patch.object(server, 'TAVILY_API_KEY', 'synthetic'), patch.object(server, 'ollama_answer', return_value=WEB_ANSWER) as model:
+            result = server.web_search_answer(question)
+        self.assertEqual(result['status'], 'complete')
+        self.assertEqual([item['url'] for item in result['sources']], ['https://example.com/pos-power'])
+        self.assertNotIn('printer-feed', model.call_args.args[1])
+        self.assertNotIn('종이 공급', model.call_args.args[1])
+        search_query = request.call_args.kwargs['payload']['query']
+        self.assertIn(question, search_query)
+        self.assertNotIn('키오스크', search_query)
+        self.assertNotIn('단말기', search_query)
+        request.assert_called_once()
+
+    def test_only_wrong_device_or_symptom_yields_general_answer_without_wrong_links(self):
+        general = json.dumps({'checks': ['포스 본체 전원 연결 상태를 확인하세요.'], 'decision': '모델별 점검은 현장 확인이 필요합니다.', 'source_numbers': []})
+        wrong_topics = [
+            ('POS 프린터 종이 공급 문제', '전원 어댑터와 프린터 용지를 점검하세요.'),
+            ('카드 단말기 전원 안 켜짐', '단말기 전원 어댑터와 전원을 점검하세요.'),
+            ('포스 인터넷 통신 오류', '포스 전원을 껐다 켜서 네트워크를 다시 연결하세요.'),
+            ('포스 부팅 후 블루스크린', '포스 전원을 껐다 켜고 부팅을 확인하세요.'),
+        ]
+        for title, content in wrong_topics:
+            with self.subTest(title=title):
+                server._web_cache.clear()
+                with patch.object(server, 'request_json', return_value={'results': [{'title': title, 'url': 'https://example.com/wrong', 'raw_content': content}]}) as request, \
+                        patch.object(server, 'TAVILY_API_KEY', 'synthetic'), patch.object(server, 'ollama_answer', return_value=general) as model:
+                    result = server.web_search_answer('포스 전원이 안켜져')
+                self.assertEqual(result['status'], 'empty')
+                self.assertEqual(result['evidence_level'], 'general')
+                self.assertEqual(result['sources'], [])
+                self.assertNotIn(title, model.call_args.args[1])
+                self.assertIn('제외', result['message'])
+                request.assert_called_once()
+
+    def test_correct_pos_power_article_can_mention_disconnecting_printer(self):
+        response = {'results': [{'title': '포스 본체 전원이 안 켜질 때', 'url': 'https://example.com/pos-power',
+                                 'raw_content': '프린터 같은 주변 기기를 분리한 뒤 포스 본체의 전원 어댑터를 점검하세요.'}]}
+        with patch.object(server, 'request_json', return_value=response), patch.object(server, 'TAVILY_API_KEY', 'synthetic'), patch.object(server, 'ollama_answer', return_value=WEB_ANSWER):
+            result = server.web_search_answer('포스 전원이 안켜져')
+        self.assertEqual(result['sources'][0]['url'], 'https://example.com/pos-power')
+
+    def test_general_manufacturer_faq_with_system_power_section_is_kept(self):
+        response = {'results': [{'title': 'POS 시스템의 문제 해결 및 기술 지원', 'url': 'https://example.com/faq',
+                                 'raw_content': '시스템이 켜지 않을 경우 전원 어댑터 연결을 확인하세요. 인터넷 통신 문제도 점검하세요.'}]}
+        with patch.object(server, 'request_json', return_value=response), patch.object(server, 'TAVILY_API_KEY', 'synthetic'), patch.object(server, 'ollama_answer', return_value=WEB_ANSWER):
+            result = server.web_search_answer('포스 전원이 안켜져')
+        self.assertEqual(result['sources'][0]['url'], 'https://example.com/faq')
+
+    def test_intent_keeps_device_and_symptom_separate_across_common_wording(self):
+        examples = [
+            ('포스가 안 켜져', {'pos'}, 'power'),
+            ('포스 단말기 전원이 안켜져', {'pos'}, 'power'),
+            ('포스 프린터 전원이 안켜져', {'printer'}, 'power'),
+            ('프린터를 분리해도 포스 전원이 안켜짐', {'pos'}, 'power'),
+            ('포스 프린터 종이가 안나와', {'printer'}, 'paper'),
+            ('프린터 전원은 들어오는데 종이가 안나와', {'printer'}, 'paper'),
+            ('포스 전원은 들어오는데 화면이 안나와', {'pos'}, 'display'),
+            ('키오스크 전원 안켜짐', {'kiosk'}, 'power'),
+            ('카드 단말기 인증 실패', {'terminal'}, 'authentication'),
+            ('포스와 키오스크 둘다 전원이 안켜짐', {'pos', 'kiosk'}, 'power'),
+        ]
+        for question, devices, symptom in examples:
+            with self.subTest(question=question):
+                self.assertEqual(server.web_intent(question), {'devices': devices, 'symptom': symptom})
+        self.assertNotIn('POS 본체', server.build_web_query('포스 프린터 종이가 안나와'))
+
+    def test_printer_power_question_excludes_same_device_paper_topic(self):
+        self.assertFalse(server.web_source_matches('프린터 전원이 안켜져', '프린터 종이 공급 문제', '프린터 전원을 끄고 용지를 확인하세요.'))
+        self.assertFalse(server.web_source_matches('포스 전원이 안켜져', '점검 가이드', '프린터 종이와 용지 급지를 점검하세요.'))
+        self.assertTrue(server.web_source_matches('프린터 종이가 안나와', '프린터 인쇄 출력 문제', '프린터 용지를 점검하세요.'))
+
     def test_fenced_json_is_accepted(self):
         with patch.object(server, 'ollama_answer', return_value='```json\n' + WEB_ANSWER + '\n```'):
             result = server.summarize_web_answer('프린터', [{'title': '매뉴얼', 'url': 'https://example.com/printer', 'content': BODY, 'body_checked': True}])
