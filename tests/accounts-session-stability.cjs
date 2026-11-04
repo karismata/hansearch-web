@@ -33,8 +33,8 @@ const supabase = load('src/lib/supabase.ts', { '@supabase/supabase-js': { create
     onAuthStateChange(fn) { authChanged = fn; return { data: { subscription: { unsubscribe() {} } } }; },
     getSession: async () => ({ data: { session } }),
     signOut: async () => ({ error: null }),
-  }, from() { return { select() { return { order: async () => {
-    fetches++; return { data: [{ id: 1, 키워드: '분류', 키워드2: '보호된 자료', 내용: '내용' }], error: null };
+  }, from() { return { select(columns) { assert.equal(columns, '*, _comment_counts:info_comments(count)'); return { order: async () => {
+    fetches++; return { data: [{ id: 1, 키워드: '분류', 키워드2: '보호된 자료', 내용: '내용', _comment_counts: [{ count: 3 }] }], error: null };
   } }; } }; } };
 } } });
 const accounts = { accountClient: () => supabase.getSupabaseClient(),
@@ -52,7 +52,8 @@ for (const name of ['AccountAdmin', 'AccountPassword', 'QuickTags', 'DataModal',
   appMocks[`./components/${name}`] = { [name]: empty };
 }
 appMocks['./components/Header'] = { Header: ({ children }) => children };
-appMocks['./components/ItemCard'] = { ItemCard: () => React.createElement('p', null, '보호된 자료') };
+appMocks['./components/ItemCard'] = { ItemCard: ({item,commentCount,onCommentCountChange}) => React.createElement('div',null,
+  React.createElement('p',null,'보호된 자료'),React.createElement('button',{'aria-label':'댓글 개수 변경',onClick:()=>onCommentCountChange(item.id,4)},`댓글 ${commentCount}`)) };
 appMocks['./components/SearchBar'] = {
   SearchFilters: empty,
   SearchBar: ({ query, onChangeQuery }) => React.createElement('div', null,
@@ -64,11 +65,15 @@ const { App } = load('src/App.tsx', appMocks);
   const container = document.getElementById('root'), root = createRoot(container);
   await act(async () => root.render(React.createElement(gate.AccountGate, null, React.createElement(App))));
   assert(container.textContent.includes('보호된 자료'));
+  assert(container.textContent.includes('댓글 3'), 'Initial counts come from the same data query');
+  await act(async () => container.querySelector('[aria-label="댓글 개수 변경"]').click());
+  assert(container.textContent.includes('댓글 4'));
   assert.equal(clients, 1, 'Mounting App must retain the client used by AccountGate');
   const connection = supabase.getSupabaseClient();
   supabase.saveConfig(supabase.getDefaultConfig());
   assert.equal(supabase.getSupabaseClient(), connection, 'Saving identical settings must preserve Auth subscriptions');
-  await act(async () => container.querySelector('button').click());
+  await act(async () => [...container.querySelectorAll('button')].find(button=>button.textContent==='입력').click());
+  assert(container.textContent.includes('댓글 4'), 'Typing must not reset comment counts');
   const input = container.querySelector('input'), initialReads = profileReads, initialFetches = fetches;
   assert.equal(input.value, '작성 중인 검색어');
   for (let i = 0; i < 20; i++) {
@@ -102,4 +107,3 @@ const { App } = load('src/App.tsx', appMocks);
   dom.window.close();
   console.log('PASS: real App/client stability, repeated sign-in events, token-refresh state preservation, latest revocation, and account switching');
 })().catch(error => { console.error(error); process.exit(1); });
-

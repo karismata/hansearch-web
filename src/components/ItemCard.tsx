@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { Star, Edit3, Trash2, Copy, Check, MessageSquare, Image as ImageIcon } from 'lucide-react';
 import { ItemComments } from './ItemComments';
 import type { InfoItem } from '../types';
@@ -8,6 +8,8 @@ import { formatDate, parseImageUrls, copyToClipboard, normalizeContentText, pars
 
 interface ItemCardProps {
   item: InfoItem;
+  commentCount?: number;
+  onCommentCountChange?: (id: number, total: number) => void;
   searchQuery: string;
   isFavorite: boolean;
   onToggleFavorite: (id: number) => void;
@@ -18,6 +20,8 @@ interface ItemCardProps {
 
 const ItemCardComponent: React.FC<ItemCardProps> = ({
   item,
+  commentCount = 0,
+  onCommentCountChange,
   searchQuery,
   isFavorite,
   onToggleFavorite,
@@ -27,6 +31,9 @@ const ItemCardComponent: React.FC<ItemCardProps> = ({
 }) => {
   const [copied, setCopied] = useState(false);
   const [commentsOpen, setCommentsOpen] = useState(false);
+  const handleTotalChange = useCallback((total: number) => {
+    if (item.id != null) onCommentCountChange?.(item.id, total);
+  }, [item.id, onCommentCountChange]);
   const images = parseImageUrls(item.이미지들);
   const categories = parseCategories(item.키워드);
 
@@ -148,7 +155,7 @@ const ItemCardComponent: React.FC<ItemCardProps> = ({
       {/* Footer / Meta & Actions */}
       <div className="pt-3 mt-1 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500 pl-6">
         <div className="flex items-center gap-2 font-medium">
-          {item.id && <><button type="button" aria-expanded={commentsOpen} aria-controls={`comments-${item.id}`} onClick={() => setCommentsOpen(open => !open)} className="text-slate-600 hover:text-blue-600 flex items-center gap-1"><MessageSquare size={13} /><span>댓글</span></button><span className="text-slate-300">|</span></>}
+          {item.id && <><button type="button" aria-label={`댓글 ${commentCount}개 ${commentsOpen ? '접기' : '보기'}`} aria-expanded={commentsOpen} aria-controls={`comments-${item.id}`} onClick={() => setCommentsOpen(open => !open)} className="text-slate-600 hover:text-blue-600 flex items-center gap-1"><MessageSquare size={13} /><span>댓글</span><span className={`min-w-5 rounded-full px-1.5 py-0.5 text-center text-[11px] font-semibold tabular-nums ${commentCount > 0 ? 'bg-blue-50 text-blue-700' : 'bg-slate-100 text-slate-500'}`}>{commentCount}</span></button><span className="text-slate-300">|</span></>}
           <button
             onClick={() => onEdit(item)}
             className="text-slate-600 hover:text-blue-600 hover:underline flex items-center gap-1 transition-colors"
@@ -171,10 +178,9 @@ const ItemCardComponent: React.FC<ItemCardProps> = ({
           {item.updated_by_username && <span>최종 수정자: {item.updated_by_username}{item.last_edited_at ? ` · ${formatDate(item.last_edited_at)}` : ''}</span>}
         </div>
       </div>
-      {commentsOpen && item.id && <div id={`comments-${item.id}`}><ItemComments infoId={item.id} /></div>}
+      {commentsOpen && item.id && <div id={`comments-${item.id}`}><ItemComments infoId={item.id} onTotalChange={handleTotalChange} /></div>}
     </article>
   );
 };
 
 export const ItemCard = React.memo(ItemCardComponent);
-

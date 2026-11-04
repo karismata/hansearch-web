@@ -15,6 +15,9 @@ spec = importlib.util.spec_from_file_location('fallback_server', Path(__file__).
 server = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(server)
 
+BODY = '전원 케이블이 연결되어 있는지 확인하고 어댑터 표시등을 점검하세요.'
+WEB_ANSWER = json.dumps({'summary': BODY + ' [웹 자료 1]', 'source_numbers': [1], 'evidence': [{'source_number': 1, 'quote': BODY}]})
+
 ITEM = {'id': 10, '키워드2': '프린터 오류', '내용': '내부 전용 정보', 'embedding': [1, 0]}
 
 
@@ -82,10 +85,10 @@ class FallbackTests(unittest.TestCase):
             calls.append((url, kwargs))
             return {'results': [
                 {'title': '잘못된 링크', 'url': 'javascript:alert(1)', 'content': 'bad'},
-                {'title': '매뉴얼', 'url': 'https://www.kicc.co.kr/manual', 'content': '일반 점검 ' * 1500},
+                {'title': '매뉴얼', 'url': 'https://www.kicc.co.kr/manual', 'content': '일반 점검 ' * 1500, 'raw_content': BODY},
                 {'title': '다른 자료', 'url': 'https://example.com/doc', 'content': '추가 내용'},
             ]}
-        answer = json.dumps({'summary': '확인 방법 [웹 자료 1]', 'source_numbers': [1]})
+        answer = WEB_ANSWER
         with patch.object(server, 'TAVILY_API_KEY', 'synthetic-search-key'), \
                 patch.object(server, 'request_json', side_effect=request), \
                 patch.object(server, 'ollama_answer', return_value=answer) as model:
@@ -140,9 +143,9 @@ class FallbackTests(unittest.TestCase):
         model.assert_not_called()
 
     def test_tavily_uses_one_basic_request_even_if_only_one_source(self):
-        first = {'results': [{'title': '매뉴얼', 'url': 'https://example.com/manual', 'content': '점검 안내'}]}
+        first = {'results': [{'title': '매뉴얼', 'url': 'https://example.com/manual', 'content': '점검 안내', 'raw_content': BODY}]}
         with patch.object(server, 'request_json', return_value=first) as request, patch.object(server, 'TAVILY_API_KEY', 'synthetic-key'), \
-                patch.object(server, 'ollama_answer', return_value=json.dumps({'summary': '확인 [웹 자료 1]', 'source_numbers': [1]})):
+                patch.object(server, 'ollama_answer', return_value=WEB_ANSWER):
             result = server.web_search_answer('질문')
         self.assertEqual(result['status'], 'complete')
         self.assertEqual(len(result['sources']), 1)
@@ -151,10 +154,10 @@ class FallbackTests(unittest.TestCase):
         self.assertEqual(payload['search_depth'], 'basic')
         self.assertFalse(payload['auto_parameters'])
         self.assertFalse(payload['include_answer'])
-        self.assertFalse(payload['include_raw_content'])
+        self.assertEqual(payload['include_raw_content'], 'text')
 
     def test_repeated_question_reuses_bounded_cache(self):
-        first = {'results': [{'title': '매뉴얼', 'url': 'https://example.com/manual', 'content': '점검 안내'}]}
+        first = {'results': [{'title': '매뉴얼', 'url': 'https://example.com/manual', 'content': '점검 안내', 'raw_content': BODY}]}
         with patch.object(server, 'request_json', return_value=first) as request, patch.object(server, 'TAVILY_API_KEY', 'synthetic-key'):
             initial, initial_hit = server.fetch_web_candidates('POS 전원')
             repeated, hit = server.fetch_web_candidates('pos   전원')
@@ -167,7 +170,7 @@ class FallbackTests(unittest.TestCase):
             self.assertEqual(request.call_count, 2)
 
     def test_cache_is_bounded_and_key_rotation_does_not_reuse_old_account_data(self):
-        first = {'results': [{'title': '매뉴얼', 'url': 'https://example.com/manual', 'content': '점검 안내'}]}
+        first = {'results': [{'title': '매뉴얼', 'url': 'https://example.com/manual', 'content': '점검 안내', 'raw_content': BODY}]}
         with patch.object(server, 'request_json', return_value=first) as request, patch.object(server, 'TAVILY_API_KEY', 'old-key'), patch.object(server, 'WEB_CACHE_MAX_ENTRIES', 2):
             for question in ['q1', 'q2', 'q3']:
                 server.fetch_web_candidates(question)
@@ -178,7 +181,7 @@ class FallbackTests(unittest.TestCase):
             self.assertEqual(request.call_count, 4)
 
     def test_concurrent_identical_questions_make_one_request(self):
-        first = {'results': [{'title': '매뉴얼', 'url': 'https://example.com/manual', 'content': '점검 안내'}]}
+        first = {'results': [{'title': '매뉴얼', 'url': 'https://example.com/manual', 'content': '점검 안내', 'raw_content': BODY}]}
         with patch.object(server, 'request_json', return_value=first) as request, patch.object(server, 'TAVILY_API_KEY', 'synthetic-key'), ThreadPoolExecutor(max_workers=2) as pool:
             futures = [pool.submit(server.fetch_web_candidates, '동일 질문') for _ in range(2)]
             hits = [future.result()[1] for future in futures]
@@ -186,8 +189,8 @@ class FallbackTests(unittest.TestCase):
         request.assert_called_once()
 
     def test_cached_answer_is_labeled_and_preserves_sources(self):
-        first = {'results': [{'title': '매뉴얼', 'url': 'https://example.com/manual', 'content': '점검 안내'}]}
-        answer = json.dumps({'summary': '확인 [웹 자료 1]', 'source_numbers': [1]})
+        first = {'results': [{'title': '매뉴얼', 'url': 'https://example.com/manual', 'content': '점검 안내', 'raw_content': BODY}]}
+        answer = WEB_ANSWER
         with patch.object(server, 'request_json', return_value=first) as request, patch.object(server, 'TAVILY_API_KEY', 'synthetic-key'), patch.object(server, 'ollama_answer', return_value=answer):
             server.web_search_answer('질문')
             result = server.web_search_answer('질문')
@@ -233,6 +236,40 @@ class FallbackTests(unittest.TestCase):
             result = server.web_search_answer('질문')
         self.assertEqual(result['status'], 'error')
         self.assertEqual(len(result['sources']), 1)
+
+    def test_body_is_read_and_only_real_quoted_evidence_is_accepted(self):
+        response = {'results': [{'title': '매뉴얼', 'url': 'https://example.com/manual', 'content': '링크 소개뿐', 'raw_content': BODY}]}
+        with patch.object(server, 'request_json', return_value=response), patch.object(server, 'TAVILY_API_KEY', 'synthetic'), patch.object(server, 'ollama_answer', return_value=WEB_ANSWER) as model:
+            result = server.web_search_answer('포스 전원')
+        self.assertEqual(result['status'], 'complete')
+        self.assertTrue(result['sources'][0]['body_checked'])
+        self.assertEqual(result['sources'][0]['evidence_quote'], BODY)
+        self.assertIn(BODY, model.call_args.args[1])
+
+    def test_invented_body_evidence_or_only_links_are_rejected(self):
+        response = {'results': [{'title': '매뉴얼', 'url': 'https://example.com/manual', 'content': '소개', 'raw_content': BODY}]}
+        for answer in [
+            {'summary': BODY, 'source_numbers': [1], 'evidence': [{'source_number': 1, 'quote': '이 사이트에 없는 구체적인 설정 방법입니다.'}]},
+            {'summary': '[웹 자료 1] https://example.com/manual', 'source_numbers': [1], 'evidence': [{'source_number': 1, 'quote': BODY}]},
+        ]:
+            with patch.object(server, 'request_json', return_value=response), patch.object(server, 'TAVILY_API_KEY', 'synthetic'), patch.object(server, 'ollama_answer', return_value=json.dumps(answer)):
+                result = server.web_search_answer('질문')
+            self.assertEqual(result['status'], 'error')
+            self.assertIn('본문 발췌', result['summary'])
+            self.assertIn(BODY, result['summary'])
+
+    def test_snippets_are_not_mislabeled_as_read_page_bodies(self):
+        response = {'results': [{'title': '소개', 'url': 'https://example.com/manual', 'content': BODY}]}
+        with patch.object(server, 'request_json', return_value=response), patch.object(server, 'TAVILY_API_KEY', 'synthetic'), patch.object(server, 'ollama_answer', return_value=WEB_ANSWER):
+            result = server.web_search_answer('질문')
+        self.assertEqual(result['status'], 'error')
+        self.assertFalse(result['sources'][0]['body_checked'])
+
+    def test_symptom_excerpt_finds_body_beyond_long_navigation(self):
+        text = '메뉴 회사소개 고객지원\n' * 300 + BODY + '\n끝'
+        excerpt = server.web_excerpt(text, '포스가 안켜져 전원')
+        self.assertIn(BODY, excerpt)
+        self.assertLessEqual(len(excerpt), 1200)
 
     def test_question_validation(self):
         for question in ['', 'a' * 1001]:

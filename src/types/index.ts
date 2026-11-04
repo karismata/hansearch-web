@@ -7,6 +7,7 @@ export interface InfoItem {
   updated_by?: string | null;
   updated_by_username?: string | null;
   last_edited_at?: string | null;
+  comment_count?: number;
   키워드: string;   // Category (대분류)
   키워드2: string;  // Title (제목 / 키워드2)
   내용: string;     // Content (본문 / 상세 내용)
@@ -24,4 +25,3 @@ export interface SupabaseConfig {
 }
 
 export type SortOption = 'latest' | 'oldest' | 'title_asc' | 'title_desc';
-

@@ -37,7 +37,7 @@ export interface WebAnswer {
   status: 'complete' | 'error' | 'not_configured' | 'empty';
   summary: string;
   message?: string;
-  sources: Array<{ number: number; title: string; url: string }>;
+  sources: Array<{ number: number; title: string; url: string; body_checked?: boolean; evidence_quote?: string }>;
 }
 
 export type AISearchStatus = 'pending' | 'processing' | 'retrieving' | 'analyzing' | 'web_search' | 'web_analysis';
@@ -83,4 +83,3 @@ export async function runAISearch(
 
   throw new Error('AI 검색 시간이 초과됐습니다. 한주AI 연결 상태를 확인해 주세요.');
 }
-
