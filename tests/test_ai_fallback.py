@@ -1,8 +1,14 @@
 import importlib.util
+import contextlib
+import io
 import json
+import os
+import socket
+import ssl
 import unittest
 from pathlib import Path
 from unittest.mock import patch
+from urllib.error import HTTPError, URLError
 
 spec = importlib.util.spec_from_file_location('fallback_server', Path(__file__).resolve().parents[1] / 'local-ai/server.py')
 server = importlib.util.module_from_spec(spec)
@@ -96,6 +102,61 @@ class FallbackTests(unittest.TestCase):
         self.assertEqual(result['status'], 'error')
         self.assertNotIn('secret-value', json.dumps(result))
 
+    def test_structured_http_errors_are_distinguished_without_secret_output(self):
+        for status in (401, 403, 429, 500):
+            error = HTTPError('https://ollama.com/api/web_search', status, 'private-error-value', {'Retry-After': '30'}, io.BytesIO(b'private-error-value'))
+            with patch.object(server, 'urlopen', side_effect=error), patch.object(server, 'OLLAMA_API_KEY', 'synthetic-key'), contextlib.redirect_stdout(io.StringIO()) as output:
+                result = server.web_search_answer('질문')
+            self.assertEqual(result['http_status'], status)
+            self.assertEqual(result['error_code'], f'http_{status}')
+            self.assertIn(str(status), result['message'])
+            self.assertNotIn('private-error-value', json.dumps(result) + output.getvalue())
+            self.assertNotIn('synthetic-key', output.getvalue())
+            if status == 429:
+                self.assertIn('30초', result['message'])
+
+    def test_cloudflare_access_block_is_not_reported_as_rate_limit(self):
+        error = HTTPError('https://ollama.com/api/web_search', 403, '', {}, io.BytesIO(b'{"error_name":"browser_signature_banned"}'))
+        with patch.object(server, 'urlopen', side_effect=error), patch.object(server, 'OLLAMA_API_KEY', 'synthetic-key'):
+            result = server.web_search_answer('질문')
+        self.assertEqual(result['error_code'], 'access_blocked')
+
+    def test_network_error_categories(self):
+        for reason, category in [(socket.gaierror('private-dns-details'), 'dns'),
+                                 (ssl.SSLCertVerificationError('private-cert-details'), 'tls'),
+                                 (TimeoutError('private-timeout'), 'timeout')]:
+            with patch.object(server, 'urlopen', side_effect=URLError(reason)), patch.object(server, 'OLLAMA_API_KEY', 'synthetic-key'):
+                result = server.web_search_answer('질문')
+            self.assertEqual(result['error_code'], category)
+            self.assertNotIn('private-', json.dumps(result))
+
+    def test_malformed_search_response_is_not_treated_as_no_evidence(self):
+        with patch.object(server, 'request_json', return_value={'error': 'private details'}), patch.object(server, 'OLLAMA_API_KEY', 'synthetic-key'), patch.object(server, 'ollama_answer') as model:
+            result = server.web_search_answer('질문')
+        self.assertEqual(result['error_code'], 'invalid_response')
+        model.assert_not_called()
+
+    def test_failed_optional_second_search_retains_first_evidence(self):
+        first = {'results': [{'title': '매뉴얼', 'url': 'https://example.com/manual', 'content': '점검 안내'}]}
+        with patch.object(server, 'request_json', side_effect=[first, server.RequestFailure('http', 429)]), patch.object(server, 'OLLAMA_API_KEY', 'synthetic-key'), \
+                patch.object(server, 'ollama_answer', return_value=json.dumps({'summary': '확인 [웹 자료 1]', 'source_numbers': [1]})):
+            result = server.web_search_answer('질문')
+        self.assertEqual(result['status'], 'complete')
+        self.assertEqual(len(result['sources']), 1)
+
+    def test_diagnostic_makes_one_request_without_starting_server_or_showing_secrets(self):
+        with patch.object(server.sys, 'argv', ['server.py', '--check-web-search']), patch.object(server, 'load_dotenv'), \
+                patch.dict(os.environ, {'OLLAMA_API_KEY': 'synthetic-secret'}), patch.object(server, 'OLLAMA_API_KEY', 'synthetic-secret'), \
+                patch.object(server, 'ThreadingHTTPServer') as http_server, patch.object(server, 'request_json', return_value={'results': []}) as request, \
+                contextlib.redirect_stdout(io.StringIO()) as output:
+            server.main()
+        request.assert_called_once()
+        self.assertEqual(request.call_args.kwargs['payload']['max_results'], 1)
+        self.assertEqual(request.call_args.args[0], 'https://ollama.com/api/web_search')
+        http_server.assert_not_called()
+        self.assertIn('HTTP 200', output.getvalue())
+        self.assertNotIn('synthetic-secret', output.getvalue())
+
     def test_no_web_evidence_produces_clearly_unverified_general_guidance(self):
         with patch.object(server, 'OLLAMA_API_KEY', 'synthetic'), patch.object(server, 'request_json', return_value={'results': []}), \
                 patch.object(server, 'ollama_answer', return_value='AI 추정·현장 확인 필요\n전원 공급 여부를 구분하세요.'):
@@ -120,4 +181,3 @@ class FallbackTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
-

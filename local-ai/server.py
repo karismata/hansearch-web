@@ -11,6 +11,9 @@ import json
 import math
 import os
 import re
+import socket
+import ssl
+import sys
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
@@ -63,6 +66,65 @@ def load_dotenv() -> None:
         os.environ.setdefault(key.strip(), value.strip().strip("\"'"))
 
 
+class RequestFailure(RuntimeError):
+    """Only safe, structured diagnostics; never retain headers or raw bodies."""
+    def __init__(self, category: str, status: int | None = None, *, blocked: bool = False,
+                 retry_after: str | None = None):
+        self.category = category
+        self.status = status
+        self.blocked = blocked
+        self.retry_after = int(retry_after) if isinstance(retry_after, str) and retry_after.isdigit() and len(retry_after) <= 5 else None
+        super().__init__(f"HTTP {status}" if status else category)
+
+
+def web_failure(exc: Exception) -> dict[str, Any]:
+    status = exc.status if isinstance(exc, RequestFailure) else None
+    category = exc.category if isinstance(exc, RequestFailure) else "unexpected"
+    code = f"http_{status}" if status else category
+    if status == 401:
+        message = "Ollama 검색키 인증에 실패했습니다 (HTTP 401). 맥미니의 OLLAMA_API_KEY가 올바른지 확인해 주세요."
+    elif status == 403:
+        message = "Ollama 웹검색 접근이 거부됐습니다 (HTTP 403). 계정의 검색 이용 권한 또는 접속 차단 여부를 확인해야 합니다."
+        if exc.blocked:
+            code = "access_blocked"
+            message = "Ollama 웹검색 접속이 보안 정책에 차단됐습니다 (HTTP 403). 검색 횟수 제한으로 확인된 오류는 아닙니다."
+    elif status == 429:
+        message = "Ollama 웹검색 요청 제한에 걸렸습니다 (HTTP 429). 잠시 후 다시 시도하거나 계정의 이용 현황을 확인해 주세요."
+        if exc.retry_after is not None:
+            message += f" 서버가 안내한 재시도 대기 시간: {exc.retry_after}초."
+    elif status == 402:
+        message = "Ollama 계정의 웹검색 이용 조건을 확인해야 합니다 (HTTP 402). 계정의 이용 현황과 권한을 확인해 주세요."
+    elif status and status >= 500:
+        message = f"Ollama 검색 서비스에서 일시 오류가 발생했습니다 (HTTP {status}). 잠시 후 다시 시도해 주세요."
+    elif status:
+        message = f"Ollama 검색 요청을 처리하지 못했습니다 (HTTP {status}). 관리자에게 이 오류 번호를 알려 주세요."
+    else:
+        message = {
+            "timeout": "Ollama 웹검색 응답 시간이 초과됐습니다. 잠시 후 다시 시도해 주세요.",
+            "dns": "맥미니에서 Ollama 검색 서버 주소를 찾지 못했습니다. 인터넷과 DNS 연결을 확인해 주세요.",
+            "tls": "Ollama 검색 서버의 HTTPS 인증서를 확인하지 못했습니다. 맥미니의 시간과 Python 인증서 설정을 확인해 주세요.",
+            "network": "맥미니에서 Ollama 검색 서버에 연결하지 못했습니다. 인터넷·방화벽·프록시 연결을 확인해 주세요.",
+            "invalid_response": "Ollama 검색 서버가 예상한 검색 결과 형식으로 응답하지 않았습니다. 잠시 후 다시 시도해 주세요.",
+            "invalid_key_format": "Ollama 검색키 형식이 올바르지 않습니다. OLLAMA_API_KEY에는 키 값만 넣어 주세요.",
+        }.get(category, "인터넷 검색 처리 중 오류가 발생했습니다. 관리자에게 오류 코드 unexpected를 알려 주세요.")
+    print(f"[web] 검색 실패: {code}", flush=True)
+    return {"status": "error", "summary": "", "sources": [], "message": message,
+            "error_code": code, "http_status": status}
+
+
+def web_headers() -> dict[str, str]:
+    key = OLLAMA_API_KEY
+    if not key.isascii() or any(ch.isspace() for ch in key) or key.startswith("OLLAMA_API_KEY="):
+        raise RequestFailure("invalid_key_format")
+    return {"Authorization": f"Bearer {key}"}
+
+
+def web_results(response: Any) -> list[dict[str, Any]]:
+    if not isinstance(response, dict) or not isinstance(response.get("results"), list):
+        raise RequestFailure("invalid_response")
+    return response["results"]
+
+
 def request_json(url: str, *, method: str = "GET", headers: dict[str, str] | None = None,
                  payload: Any = None, timeout: int = 120) -> Any:
     body = None if payload is None else json.dumps(payload, ensure_ascii=False).encode("utf-8")
@@ -77,12 +139,20 @@ def request_json(url: str, *, method: str = "GET", headers: dict[str, str] | Non
     try:
         with urlopen(request, timeout=timeout) as response:
             raw = response.read()
-            return json.loads(raw.decode("utf-8")) if raw else None
+            try:
+                return json.loads(raw.decode("utf-8")) if raw else None
+            except (ValueError, UnicodeError):
+                raise RequestFailure("invalid_response") from None
     except HTTPError as exc:
-        detail = exc.read().decode("utf-8", errors="replace")
-        raise RuntimeError(f"HTTP {exc.code}: {detail[:500]}") from exc
+        detail = exc.read(4096).decode("utf-8", errors="replace").lower()
+        blocked = exc.code == 403 and any(term in detail for term in ("error 1010", "browser_signature_banned", "cf-mitigated", "just a moment"))
+        raise RequestFailure("http", exc.code, blocked=blocked, retry_after=exc.headers.get("Retry-After") if exc.headers else None) from None
     except URLError as exc:
-        raise RuntimeError(f"연결 실패: {exc.reason}") from exc
+        reason = exc.reason
+        category = "tls" if isinstance(reason, ssl.SSLCertVerificationError) else "dns" if isinstance(reason, socket.gaierror) else "timeout" if isinstance(reason, TimeoutError) else "network"
+        raise RequestFailure(category) from None
+    except TimeoutError:
+        raise RequestFailure("timeout") from None
 
 
 def fetch_all_items() -> list[dict[str, Any]]:
@@ -298,21 +368,27 @@ def web_search_answer(query: str, progress=None) -> dict[str, Any]:
                 "message": "한주AI 서버에 인터넷 검색 연결키 설정이 필요합니다. 관리자에게 문의해 주세요."}
     if progress:
         progress("web_search")
-    headers = {"Authorization": f"Bearer {OLLAMA_API_KEY}"}
     preferred = [domain.strip().lower() for domain in WEB_PREFERRED_DOMAINS.split(",")
                  if re.fullmatch(r"[a-zA-Z0-9.-]+", domain.strip())]
     try:
+        headers = web_headers()
         # Send only the user's question, never internal records, comments or relay keys.
         query_text = f"{query} POS 포스 키오스크 단말기 문제 해결"
         first = query_text + " 공식 매뉴얼 제조사 고객지원"
         response = request_json("https://ollama.com/api/web_search", method="POST", headers=headers,
                                 payload={"query": first, "max_results": 3}, timeout=20)
-        candidates = list(response.get("results") or [])
+        candidates = list(web_results(response))
         # Broaden when the preferred sites have little coverage; one bounded retry.
         if len(candidates) < 2:
-            broader = request_json("https://ollama.com/api/web_search", method="POST", headers=headers,
-                                   payload={"query": query_text, "max_results": 3}, timeout=20)
-            candidates.extend(broader.get("results") or [])
+            try:
+                broader = request_json("https://ollama.com/api/web_search", method="POST", headers=headers,
+                                       payload={"query": query_text, "max_results": 3}, timeout=20)
+                candidates.extend(web_results(broader))
+            except Exception as exc:
+                # A failed optional second search must not discard the first result.
+                if not any(isinstance(item, dict) and safe_web_url(item.get("url")) and item.get("content") for item in candidates):
+                    raise
+                web_failure(exc)
         sources = []
         seen = set()
         for item in candidates:
@@ -329,10 +405,8 @@ def web_search_answer(query: str, progress=None) -> dict[str, Any]:
                             "preferred": any(host == d or host.endswith("." + d) for d in preferred)})
         sources.sort(key=lambda item: not item["preferred"])
         sources = sources[:4]
-    except Exception:
-        # HTTP error bodies can contain service details; don't expose these to users/logs.
-        return {"status": "error", "summary": "", "sources": [],
-                "message": "인터넷 검색에 연결하지 못했습니다. 관리자가 Ollama 검색키와 이용 한도, 네트워크 상태를 확인해 주세요."}
+    except Exception as exc:
+        return web_failure(exc)
     if not sources:
         if progress:
             progress("web_analysis")
@@ -561,6 +635,25 @@ def main() -> None:
     OLLAMA_API_KEY = os.getenv("OLLAMA_API_KEY", OLLAMA_API_KEY).strip()
     WEB_PREFERRED_DOMAINS = os.getenv("WEB_PREFERRED_DOMAINS", WEB_PREFERRED_DOMAINS)
 
+    if sys.argv[1:] == ["--check-web-search"]:
+        # Run beside the existing server without opening a port, syncing data,
+        # calling the model or exposing a key. Exactly one generic search.
+        print("검색키 설정: " + ("있음 (값은 표시하지 않음)" if OLLAMA_API_KEY else "없음"), flush=True)
+        if not OLLAMA_API_KEY:
+            raise SystemExit(1)
+        try:
+            response = request_json("https://ollama.com/api/web_search", method="POST", headers=web_headers(),
+                                    payload={"query": "POS 전원 켜지지 않음", "max_results": 1}, timeout=20)
+            rows = web_results(response)
+            print(f"웹검색 연결: 성공 (HTTP 200, 결과 {len(rows)}건)", flush=True)
+        except Exception as exc:
+            failure = web_failure(exc)
+            print(f"웹검색 연결: 실패\n오류 코드: {failure['error_code']}\n{failure['message']}", flush=True)
+            raise SystemExit(1) from None
+        return
+    if sys.argv[1:]:
+        raise SystemExit("사용법: python3 server.py [--check-web-search]")
+
     server = ThreadingHTTPServer((HOST, PORT), Handler)
     threading.Thread(target=sync_loop, daemon=True, name="supabase-sync").start()
     threading.Thread(target=relay_loop, daemon=True, name="cloudflare-ai-relay").start()
@@ -572,4 +665,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
