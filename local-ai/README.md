@@ -1,6 +1,6 @@
 # HanSearch Local AI (Mac mini)
 
-인터넷 보완 검색 및 기존 설치 업데이트: [내부 우선 AI 검색·댓글 안내](../docs/ai-web-and-comments.md). 기존 `.env`에 `OLLAMA_API_KEY`를 추가하며, 기존 설정 파일을 예제로 덮어쓰지 않습니다.
+인터넷 보완 검색 및 기존 설치 업데이트: [내부 우선 AI 검색·댓글 안내](../docs/ai-web-and-comments.md). 검색은 Tavily 무료 플랜을 사용하며 기존 `.env`에 `TAVILY_API_KEY`를 추가합니다. 로컬 답변 생성은 계속 Ollama를 사용합니다. 기존 설정 파일을 예제로 덮어쓰지 않습니다.
 
 This service is the Mac mini side of HanSearch AI search. It reads the existing
 Supabase `info` table, creates local Ollama embeddings, and periodically replaces
@@ -14,7 +14,8 @@ The local status/search server binds to `127.0.0.1` only. Website requests are
 relayed through the HanSearch Cloudflare Worker; the Mac makes outbound HTTPS
 requests and no home-router port is exposed. Query and compact search results
 are held briefly in the Cloudflare Durable Object queue and expire after ten
-minutes. Search and answer generation still run on the Mac mini.
+minutes. Internal retrieval and final answer generation run on the Mac mini;
+optional external web searches use Tavily Search with the Mac's private key.
 
 ## Run on the Mac mini
 
@@ -53,4 +54,3 @@ operation fails, the prior local snapshot is retained. A later successful sync
 reconciles additions, edits, and deletions. The Worker relay is available only
 after its AIQueue Durable Object migration is deployed and the `AI_ACCESS_TOKEN`
 Worker secret is configured.
-

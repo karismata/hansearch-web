@@ -13,7 +13,7 @@ class WebSetupTests(unittest.TestCase):
     def test_preserves_existing_private_settings_and_replaces_only_search_key(self):
         with tempfile.TemporaryDirectory() as directory:
             env_file = Path(directory) / '.env'
-            original = '# existing\nAI_ACCESS_TOKEN=old-relay-token\nSUPABASE_ACCOUNT_MODE=1\nOLLAMA_API_KEY=old-key\n'
+            original = '# existing\nAI_ACCESS_TOKEN=old-relay-token\nSUPABASE_ACCOUNT_MODE=1\nOLLAMA_API_KEY=old-key\nTAVILY_API_KEY=old-search-key\n'
             env_file.write_text(original, encoding='utf-8')
             result = subprocess.run([sys.executable, '-c', PYTHON_BLOCK], cwd=directory,
                                     env={**os.environ, 'HANSEARCH_SEARCH_KEY': 'synthetic-new-search-key'}, capture_output=True, text=True)
@@ -21,8 +21,9 @@ class WebSetupTests(unittest.TestCase):
             saved = env_file.read_text(encoding='utf-8')
             self.assertIn('AI_ACCESS_TOKEN=old-relay-token', saved)
             self.assertIn('SUPABASE_ACCOUNT_MODE=1', saved)
-            self.assertEqual(saved.count('OLLAMA_API_KEY='), 1)
-            self.assertIn('OLLAMA_API_KEY=synthetic-new-search-key', saved)
+            self.assertEqual(saved.count('TAVILY_API_KEY='), 1)
+            self.assertIn('TAVILY_API_KEY=synthetic-new-search-key', saved)
+            self.assertIn('OLLAMA_API_KEY=old-key', saved)
             self.assertEqual((Path(directory) / '.env.web-backup').read_text(encoding='utf-8'), original)
             self.assertNotIn('synthetic-new-search-key', result.stdout + result.stderr)
 
@@ -38,4 +39,3 @@ class WebSetupTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
-

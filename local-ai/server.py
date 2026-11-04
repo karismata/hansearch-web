@@ -16,6 +16,7 @@ import ssl
 import sys
 import threading
 import time
+from collections import OrderedDict
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -42,7 +43,7 @@ HOST = os.getenv("HOST", "127.0.0.1")
 PORT = int(os.getenv("PORT", "8765"))
 RELAY_URL = os.getenv("RELAY_URL", "https://hansearch-web.karis830519.workers.dev").rstrip("/")
 AI_ACCESS_TOKEN = os.getenv("AI_ACCESS_TOKEN", "")
-OLLAMA_API_KEY = os.getenv("OLLAMA_API_KEY", "")
+TAVILY_API_KEY = os.getenv("TAVILY_API_KEY", "")
 # These domains were checked against the vendors' public websites. Operators
 # may extend the comma-separated list; it prioritizes search, not answer truth.
 WEB_PREFERRED_DOMAINS = os.getenv("WEB_PREFERRED_DOMAINS", "kicc.co.kr,ksnet.co.kr,ksnet.kr")
@@ -51,6 +52,10 @@ EMBED_BATCH_SIZE = 24
 
 _sync_lock = threading.Lock()
 _last_sync: dict[str, Any] = {"status": "not_started", "count": 0}
+_web_lock = threading.Lock()
+_web_cache: OrderedDict[str, tuple[float, list[dict[str, Any]]]] = OrderedDict()
+WEB_CACHE_TTL_SECONDS = 6 * 60 * 60
+WEB_CACHE_MAX_ENTRIES = 128
 
 
 def load_dotenv() -> None:
@@ -82,30 +87,34 @@ def web_failure(exc: Exception) -> dict[str, Any]:
     category = exc.category if isinstance(exc, RequestFailure) else "unexpected"
     code = f"http_{status}" if status else category
     if status == 401:
-        message = "Ollama 검색키 인증에 실패했습니다 (HTTP 401). 맥미니의 OLLAMA_API_KEY가 올바른지 확인해 주세요."
+        message = "Tavily 검색키 인증에 실패했습니다 (HTTP 401). 맥미니의 TAVILY_API_KEY가 올바른지 확인해 주세요."
     elif status == 403:
-        message = "Ollama 웹검색 접근이 거부됐습니다 (HTTP 403). 계정의 검색 이용 권한 또는 접속 차단 여부를 확인해야 합니다."
+        message = "Tavily 웹검색 접근이 거부됐습니다 (HTTP 403). 계정의 검색 이용 권한 또는 접속 차단 여부를 확인해야 합니다."
         if exc.blocked:
             code = "access_blocked"
-            message = "Ollama 웹검색 접속이 보안 정책에 차단됐습니다 (HTTP 403). 검색 횟수 제한으로 확인된 오류는 아닙니다."
+            message = "Tavily 웹검색 접속이 보안 정책에 차단됐습니다 (HTTP 403). 검색 횟수 제한으로 확인된 오류는 아닙니다."
     elif status == 429:
-        message = "Ollama 웹검색 요청 제한에 걸렸습니다 (HTTP 429). 잠시 후 다시 시도하거나 계정의 이용 현황을 확인해 주세요."
+        message = "Tavily 웹검색 요청 제한에 걸렸습니다 (HTTP 429). 잠시 후 다시 시도하거나 계정의 이용 현황을 확인해 주세요."
         if exc.retry_after is not None:
             message += f" 서버가 안내한 재시도 대기 시간: {exc.retry_after}초."
+    elif status in (432, 433):
+        message = f"Tavily 웹검색의 계정 또는 API 키 이용 한도에 도달했습니다 (HTTP {status}). 내부 검색은 계속 사용할 수 있습니다. 무료 플랜 사용량과 초기화 일정을 확인해 주세요."
+    elif status == 434:
+        message = "Tavily 웹검색이 일시적으로 혼잡합니다 (HTTP 434). 잠시 후 다시 시도해 주세요. 내부 검색은 계속 사용할 수 있습니다."
     elif status == 402:
-        message = "Ollama 계정의 웹검색 이용 조건을 확인해야 합니다 (HTTP 402). 계정의 이용 현황과 권한을 확인해 주세요."
+        message = "Tavily 계정의 웹검색 이용 조건을 확인해야 합니다 (HTTP 402). 계정의 이용 현황과 권한을 확인해 주세요."
     elif status and status >= 500:
-        message = f"Ollama 검색 서비스에서 일시 오류가 발생했습니다 (HTTP {status}). 잠시 후 다시 시도해 주세요."
+        message = f"Tavily 검색 서비스에서 일시 오류가 발생했습니다 (HTTP {status}). 잠시 후 다시 시도해 주세요."
     elif status:
-        message = f"Ollama 검색 요청을 처리하지 못했습니다 (HTTP {status}). 관리자에게 이 오류 번호를 알려 주세요."
+        message = f"Tavily 검색 요청을 처리하지 못했습니다 (HTTP {status}). 관리자에게 이 오류 번호를 알려 주세요."
     else:
         message = {
-            "timeout": "Ollama 웹검색 응답 시간이 초과됐습니다. 잠시 후 다시 시도해 주세요.",
-            "dns": "맥미니에서 Ollama 검색 서버 주소를 찾지 못했습니다. 인터넷과 DNS 연결을 확인해 주세요.",
-            "tls": "Ollama 검색 서버의 HTTPS 인증서를 확인하지 못했습니다. 맥미니의 시간과 Python 인증서 설정을 확인해 주세요.",
-            "network": "맥미니에서 Ollama 검색 서버에 연결하지 못했습니다. 인터넷·방화벽·프록시 연결을 확인해 주세요.",
-            "invalid_response": "Ollama 검색 서버가 예상한 검색 결과 형식으로 응답하지 않았습니다. 잠시 후 다시 시도해 주세요.",
-            "invalid_key_format": "Ollama 검색키 형식이 올바르지 않습니다. OLLAMA_API_KEY에는 키 값만 넣어 주세요.",
+            "timeout": "Tavily 웹검색 응답 시간이 초과됐습니다. 잠시 후 다시 시도해 주세요.",
+            "dns": "맥미니에서 Tavily 검색 서버 주소를 찾지 못했습니다. 인터넷과 DNS 연결을 확인해 주세요.",
+            "tls": "Tavily 검색 서버의 HTTPS 인증서를 확인하지 못했습니다. 맥미니의 시간과 Python 인증서 설정을 확인해 주세요.",
+            "network": "맥미니에서 Tavily 검색 서버에 연결하지 못했습니다. 인터넷·방화벽·프록시 연결을 확인해 주세요.",
+            "invalid_response": "Tavily 검색 서버가 예상한 검색 결과 형식으로 응답하지 않았습니다. 잠시 후 다시 시도해 주세요.",
+            "invalid_key_format": "Tavily 검색키 형식이 올바르지 않습니다. TAVILY_API_KEY에는 키 값만 넣어 주세요.",
         }.get(category, "인터넷 검색 처리 중 오류가 발생했습니다. 관리자에게 오류 코드 unexpected를 알려 주세요.")
     print(f"[web] 검색 실패: {code}", flush=True)
     return {"status": "error", "summary": "", "sources": [], "message": message,
@@ -113,8 +122,8 @@ def web_failure(exc: Exception) -> dict[str, Any]:
 
 
 def web_headers() -> dict[str, str]:
-    key = OLLAMA_API_KEY
-    if not key.isascii() or any(ch.isspace() for ch in key) or key.startswith("OLLAMA_API_KEY="):
+    key = TAVILY_API_KEY
+    if not key.isascii() or any(ch.isspace() for ch in key) or key.startswith("TAVILY_API_KEY="):
         raise RequestFailure("invalid_key_format")
     return {"Authorization": f"Bearer {key}"}
 
@@ -123,6 +132,47 @@ def web_results(response: Any) -> list[dict[str, Any]]:
     if not isinstance(response, dict) or not isinstance(response.get("results"), list):
         raise RequestFailure("invalid_response")
     return response["results"]
+
+
+def fetch_web_candidates(query: str, *, use_cache: bool = True, diagnostic: bool = False) -> tuple[list[dict[str, Any]], bool]:
+    """One basic request per cache miss; serialize identical concurrent searches.
+
+    Search only: no automatic advanced mode, hosted answer, extract or paid
+    fallback. Cache bounded snippets in RAM, not API keys or provider error bodies.
+    """
+    cache_key = hashlib.sha256((TAVILY_API_KEY + "\0" + " ".join(query.split()).casefold()).encode()).hexdigest()
+    with _web_lock:
+        now = time.monotonic()
+        expired = [key for key, (created, _) in _web_cache.items() if now - created >= WEB_CACHE_TTL_SECONDS]
+        for key in expired:
+            del _web_cache[key]
+        if use_cache and cache_key in _web_cache:
+            _web_cache.move_to_end(cache_key)
+            return [dict(item) for item in _web_cache[cache_key][1]], True
+        response = request_json("https://api.tavily.com/search", method="POST", headers=web_headers(),
+                                payload={"query": query, "search_depth": "basic", "topic": "general",
+                                         "max_results": 1 if diagnostic else 4,
+                                         "auto_parameters": False, "include_answer": False,
+                                         "include_raw_content": False, "include_images": False}, timeout=20)
+        rows = web_results(response)
+        candidates = []
+        seen = set()
+        for item in rows[:10]:
+            if not isinstance(item, dict):
+                continue
+            url = safe_web_url(item.get("url"))
+            content = str(item.get("content") or "").strip()
+            if not url or url in seen or not content:
+                continue
+            seen.add(url)
+            candidates.append({"url": url, "title": str(item.get("title") or urlsplit(url).hostname)[:250],
+                               "content": content[:1200]})
+        if use_cache and candidates:
+            _web_cache[cache_key] = (time.monotonic(), candidates[:4])
+            _web_cache.move_to_end(cache_key)
+            while len(_web_cache) > WEB_CACHE_MAX_ENTRIES:
+                _web_cache.popitem(last=False)
+        return candidates[:4], False
 
 
 def request_json(url: str, *, method: str = "GET", headers: dict[str, str] | None = None,
@@ -363,32 +413,16 @@ def safe_web_url(value: Any) -> str | None:
 
 
 def web_search_answer(query: str, progress=None) -> dict[str, Any]:
-    if not OLLAMA_API_KEY:
+    if not TAVILY_API_KEY:
         return {"status": "not_configured", "summary": "", "sources": [],
-                "message": "한주AI 서버에 인터넷 검색 연결키 설정이 필요합니다. 관리자에게 문의해 주세요."}
+                "message": "한주AI 서버에 Tavily 검색키 설정이 필요합니다. 관리자에게 문의해 주세요."}
     if progress:
         progress("web_search")
     preferred = [domain.strip().lower() for domain in WEB_PREFERRED_DOMAINS.split(",")
                  if re.fullmatch(r"[a-zA-Z0-9.-]+", domain.strip())]
     try:
-        headers = web_headers()
         # Send only the user's question, never internal records, comments or relay keys.
-        query_text = f"{query} POS 포스 키오스크 단말기 문제 해결"
-        first = query_text + " 공식 매뉴얼 제조사 고객지원"
-        response = request_json("https://ollama.com/api/web_search", method="POST", headers=headers,
-                                payload={"query": first, "max_results": 3}, timeout=20)
-        candidates = list(web_results(response))
-        # Broaden when the preferred sites have little coverage; one bounded retry.
-        if len(candidates) < 2:
-            try:
-                broader = request_json("https://ollama.com/api/web_search", method="POST", headers=headers,
-                                       payload={"query": query_text, "max_results": 3}, timeout=20)
-                candidates.extend(web_results(broader))
-            except Exception as exc:
-                # A failed optional second search must not discard the first result.
-                if not any(isinstance(item, dict) and safe_web_url(item.get("url")) and item.get("content") for item in candidates):
-                    raise
-                web_failure(exc)
+        candidates, cached = fetch_web_candidates(f"{query.strip()} POS 포스 키오스크 단말기 문제 해결 공식 매뉴얼")
         sources = []
         seen = set()
         for item in candidates:
@@ -457,7 +491,8 @@ def web_search_answer(query: str, progress=None) -> dict[str, Any]:
             raise ValueError("unverified citation")
         if not numbers:
             summary = "AI 추정·현장 확인 필요\n" + summary
-        return {"status": "complete", "summary": summary.strip(),
+        return {"status": "complete", "summary": summary.strip(), "cached": cached,
+                **({"message": "최근 6시간 내 같은 질문의 인터넷 검색 자료를 재사용했습니다."} if cached else {}),
                 "sources": [{"number": n, "title": item["title"], "url": item["url"]}
                             for n, item in enumerate(sources, 1) if n in numbers]}
     except Exception:
@@ -471,7 +506,7 @@ def search(query: str, limit: int = 8, *, mode: str = "auto", progress=None) -> 
     if not normalized or len(normalized) > 1000 or mode not in ("auto", "web"):
         raise ValueError("검색어는 1~1000자이며 올바른 검색 방식을 선택해야 합니다.")
     result = {"query": normalized, "summary": "", "results": [], "synced_count": 0,
-              "protocol_version": 2, "web_available": bool(OLLAMA_API_KEY)}
+              "protocol_version": 2, "web_available": bool(TAVILY_API_KEY)}
     if mode == "web":
         result["web"] = web_search_answer(normalized, progress)
         return result
@@ -522,7 +557,7 @@ class Handler(BaseHTTPRequestHandler):
             self._send(404, {"error": "not_found"})
             return
         self._send(200, {"service": "hansearch-local-ai", "sync": _last_sync, "count": len(read_state()),
-                         "ai_protocol": 2, "web_search_configured": bool(OLLAMA_API_KEY)})
+                         "ai_protocol": 2, "web_search_provider": "tavily", "web_search_configured": bool(TAVILY_API_KEY)})
 
     def do_POST(self) -> None:
         if self.path not in ("/sync", "/search"):
@@ -619,7 +654,7 @@ def relay_loop() -> None:
 def main() -> None:
     load_dotenv()
     # Load .env overrides after module constants were initialized.
-    global SUPABASE_URL, SUPABASE_KEY, SUPABASE_TABLE, SUPABASE_ACCOUNT_MODE, OLLAMA_URL, CHAT_MODEL, EMBED_MODEL, SYNC_INTERVAL, HOST, PORT, RELAY_URL, AI_ACCESS_TOKEN, OLLAMA_API_KEY, WEB_PREFERRED_DOMAINS
+    global SUPABASE_URL, SUPABASE_KEY, SUPABASE_TABLE, SUPABASE_ACCOUNT_MODE, OLLAMA_URL, CHAT_MODEL, EMBED_MODEL, SYNC_INTERVAL, HOST, PORT, RELAY_URL, AI_ACCESS_TOKEN, TAVILY_API_KEY, WEB_PREFERRED_DOMAINS
     SUPABASE_URL = os.getenv("SUPABASE_URL", SUPABASE_URL).rstrip("/")
     SUPABASE_KEY = os.getenv("SUPABASE_KEY", SUPABASE_KEY)
     SUPABASE_TABLE = os.getenv("SUPABASE_TABLE", SUPABASE_TABLE)
@@ -632,19 +667,17 @@ def main() -> None:
     PORT = int(os.getenv("PORT", str(PORT)))
     RELAY_URL = os.getenv("RELAY_URL", RELAY_URL).rstrip("/")
     AI_ACCESS_TOKEN = os.getenv("AI_ACCESS_TOKEN", AI_ACCESS_TOKEN)
-    OLLAMA_API_KEY = os.getenv("OLLAMA_API_KEY", OLLAMA_API_KEY).strip()
+    TAVILY_API_KEY = os.getenv("TAVILY_API_KEY", TAVILY_API_KEY).strip()
     WEB_PREFERRED_DOMAINS = os.getenv("WEB_PREFERRED_DOMAINS", WEB_PREFERRED_DOMAINS)
 
     if sys.argv[1:] == ["--check-web-search"]:
         # Run beside the existing server without opening a port, syncing data,
         # calling the model or exposing a key. Exactly one generic search.
-        print("검색키 설정: " + ("있음 (값은 표시하지 않음)" if OLLAMA_API_KEY else "없음"), flush=True)
-        if not OLLAMA_API_KEY:
+        print("검색키 설정: " + ("있음 (값은 표시하지 않음)" if TAVILY_API_KEY else "없음"), flush=True)
+        if not TAVILY_API_KEY:
             raise SystemExit(1)
         try:
-            response = request_json("https://ollama.com/api/web_search", method="POST", headers=web_headers(),
-                                    payload={"query": "POS 전원 켜지지 않음", "max_results": 1}, timeout=20)
-            rows = web_results(response)
+            rows, _ = fetch_web_candidates("POS 전원 켜지지 않음", use_cache=False, diagnostic=True)
             print(f"웹검색 연결: 성공 (HTTP 200, 결과 {len(rows)}건)", flush=True)
         except Exception as exc:
             failure = web_failure(exc)
@@ -659,7 +692,7 @@ def main() -> None:
     threading.Thread(target=relay_loop, daemon=True, name="cloudflare-ai-relay").start()
     print(f"HanSearch AI service: http://{HOST}:{PORT}", flush=True)
     print(f"Supabase table: {SUPABASE_TABLE}; sync interval: {SYNC_INTERVAL}s", flush=True)
-    print(f"[web] 인터넷 검색: {'사용 가능' if OLLAMA_API_KEY else 'OLLAMA_API_KEY 설정 필요'}", flush=True)
+    print(f"[web] 인터넷 검색: Tavily · {'키 설정됨' if TAVILY_API_KEY else 'TAVILY_API_KEY 설정 필요'}", flush=True)
     server.serve_forever()
 
 
