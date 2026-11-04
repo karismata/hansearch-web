@@ -144,8 +144,9 @@ const resolve=async(index,value)=>act(async()=>jobs[index].resolve({query:jobs[i
   assert.equal(reported.at(-1),3);
   const section=container.querySelector('section');assert.equal(section.querySelector('script'),null);assert(section.textContent.includes('<script>'));
   assert(![...section.querySelectorAll('button')].some(b=>b.textContent==='수정'||b.textContent==='삭제'));
-  assert.equal(replyFetches,0,'Replies stay lazy');
-  await click('답글 보기·작성');assert.equal(replyFetches,1);
+  assert.equal(replyFetches,1,'Reply checks start only after opening article comments');
+  assert(!container.querySelector('[aria-label="답글 목록"]'),'Empty reply groups stay collapsed');
+  await click('답글 0개 보기·작성');assert.equal(replyFetches,1,'Opening the empty composer reuses the check');
   const replyInput=container.querySelector('textarea[aria-label="답글 내용"]');
   await act(async()=>{Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype,'value').set.call(replyInput,'현장에서 확인한 답글');replyInput.dispatchEvent(new window.Event('input',{bubbles:true}));});
   await act(async()=>replyInput.closest('form').dispatchEvent(new window.Event('submit',{bubbles:true,cancelable:true})));
@@ -162,6 +163,15 @@ const resolve=async(index,value)=>act(async()=>jobs[index].resolve({query:jobs[i
   await act(async()=>root.unmount());
 
   const oldReply={...comment,id:'oldreply',parent_id:'c1',body:'알림에서 바로 찾아갈 오래된 답글'};
+  replyRows=[oldReply];
+  root=createRoot(container);const checksBeforeOpen=replyFetches;
+  await act(async()=>root.render(React.createElement(ItemCard,{item:{id:1,키워드:'',키워드2:'일반 자료',내용:'본문'},commentCount:3,searchQuery:'',isFavorite:false})));
+  assert.equal(replyFetches,checksBeforeOpen,'Closed article comments do not fetch replies');
+  await act(async()=>container.querySelector('[aria-label="댓글 3개 보기"]').click());
+  assert(container.querySelector('[aria-label="답글 목록"]').textContent.includes(oldReply.body),'Existing replies open with their parent comments');
+  const checked=replyFetches;await click('답글 1개 접기');assert(!container.querySelector('[aria-label="답글 목록"]'));
+  await click('답글 1개 보기·작성');assert.equal(replyFetches,checked,'Manual collapse/reopen uses loaded replies');
+  await act(async()=>root.unmount());
   replyRows=[...Array.from({length:35},(_,i)=>({...comment,id:'page-reply-'+i,parent_id:'c1',body:'일반 답글 '+i})),oldReply];remoteTotal=37;
   root=createRoot(container);
   await act(async()=>root.render(React.createElement(ItemCard,{item:{id:1,키워드:'',키워드2:'알림 글 전체 제목',내용:'알림 글 전체 본문'},notificationThreadId:'c1',notificationComment:oldReply,commentCount:37,onCommentCountChange:(_id,n)=>report(n),searchQuery:'',isFavorite:false})));
