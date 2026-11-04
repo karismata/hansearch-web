@@ -15,6 +15,8 @@ curl --fail --location --silent --show-error \
   "https://raw.githubusercontent.com/karismata/hansearch-web/${HANSEARCH_UPDATE_REF:-main}/local-ai/server.py" \
   --output "$hansearch_temp"
 python3 -m py_compile "$hansearch_temp"
+echo "실제 로컬 모델이 짧은 답변을 만들 수 있는지 먼저 확인합니다."
+python3 "$hansearch_temp" --check-answer
 echo "기존 Tavily 키로 검색 연결을 한 번 확인합니다."
 python3 "$hansearch_temp" --check-web-search
 cp server.py server.py.web-backup

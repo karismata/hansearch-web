@@ -39,7 +39,7 @@ export function AIAnswerPanel({ result, onSave, variant = 'internal' }: Props) {
   return (
     <div className="mb-3 p-4 bg-violet-50 border border-violet-200 rounded-xl">
       <div className="flex items-center justify-between gap-3 mb-2">
-        <p className="text-xs font-bold text-violet-800">{result.saved_answer ? '저장된 수정 답변' : variant === 'web' ? legacyDump || result.web?.status === 'error' ? '인터넷 자료 확인 · 답변 정리 미완료' : sources.length ? '인터넷 자료 기반 추가 답변' : 'AI 일반 점검 · 현장 확인 필요' : '한주AI · 내부 자료 답변'}</p>
+        <p className="text-xs font-bold text-violet-800">{result.saved_answer ? '저장된 수정 답변' : variant === 'web' ? legacyDump || result.web?.status === 'error' ? '인터넷 자료 확인 · 답변 정리 미완료' : result.web?.evidence_level === 'snippet' ? '인터넷 검색 요약 참고 · 원문 미확인' : sources.length ? '인터넷 자료 기반 추가 답변' : 'AI 일반 점검 · 현장 확인 필요' : '한주AI · 내부 자료 답변'}</p>
         {!editing && result.summary?.trim() && <button type="button" className="text-xs font-semibold text-violet-800 underline" onClick={() => {
           setQuestion(result.query); setAnswer(editableAnswer); setError(''); setSaved(false); setEditing(true);
         }}>답변 수정·저장</button>}

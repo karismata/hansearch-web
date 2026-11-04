@@ -70,6 +70,15 @@ const resolve=async(index,value)=>act(async()=>jobs[index].resolve({query:jobs[i
   assert(detail.textContent.includes('장황한 페이지 원문'),'Full legacy text remains available on demand');
   await act(async()=>root.unmount());
 
+  root=createRoot(container);
+  const snippetWeb={status:'complete',summary:'검색 요약 참고·원문 미확인\n1. 용지 장착 상태를 확인하세요.',evidence_level:'snippet',sources:[{number:1,title:'프린터 점검',url:'https://example.com/printer',body_checked:false,body_excerpt:'용지 장착 상태를 확인하세요.'}]};
+  await act(async()=>root.render(React.createElement(AIAnswerPanel,{variant:'web',result:{query:'프린터',summary:snippetWeb.summary,web:snippetWeb},onSave:async()=>{}})));
+  assert(container.textContent.includes('인터넷 검색 요약 참고 · 원문 미확인'));
+  assert(container.textContent.includes('검색 요약만 확인'));
+  assert(!container.querySelector('a[href="https://example.com/printer"]').closest('details'));
+  assert.equal(container.querySelector('details').open,false);
+  await act(async()=>root.unmount());
+
   // Lazy comments, safe text, author-only editing, master deletion, and no mount-time fetch on cards.
   let fetches=0,replyFetches=0,remoteTotal=3;const reported=[];const report=total=>reported.push(total);let replyRows=[];const addedCalls=[];
   const comment={id:'c1',info_id:1,parent_id:null,author_id:'someone-else',author_username:'other',body:'<script>unsafe()</script>',created_at:'date',updated_at:null};
