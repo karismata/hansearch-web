@@ -28,6 +28,24 @@ try {
  approved=false;r=await worker.fetch(make(`/api/ai/jobs/${job.id}`,{Authorization:`Bearer ${jwt}`}),env);assert.equal(r.status,403);
  r=await worker.fetch(make('/api/ai/agent/next'),env);assert.equal(r.status,401);
  r=await worker.fetch(make('/api/ai/agent/next',{Authorization:`Bearer ${env.AI_ACCESS_TOKEN}`}),env);assert.equal(r.status,200);assert.equal((await r.json()).id,job.id);
+ approved=true;
+ r=await worker.fetch(make('/api/ai/jobs',{Authorization:`Bearer ${jwt}`},{query:'질문',mode:'web'}),env);assert.equal(r.status,503);
+ r=await worker.fetch(make('/api/ai/agent/next',{Authorization:`Bearer ${env.AI_ACCESS_TOKEN}`,'X-HanSearch-AI-Version':'2'}),env);assert.equal(r.status,204);
+ r=await worker.fetch(make('/api/ai/jobs',{Authorization:`Bearer ${jwt}`},{query:'질문',mode:'web',parent_id:job.id}),env);assert.equal(r.status,202);const webJob=await r.json();
+ assert.equal(map.get(`job:${job.id}`).externalWebRequested,true);
+ r=await worker.fetch(make(`/api/ai/agent/progress/${job.id}`,{Authorization:`Bearer ${env.AI_ACCESS_TOKEN}`},{stage:'analyzing'}),env);assert.equal((await r.json()).external_web_requested,true);
+ // An old Mac must never consume a web job and silently return another internal answer.
+ r=await worker.fetch(make('/api/ai/agent/next',{Authorization:`Bearer ${env.AI_ACCESS_TOKEN}`}),env);assert.equal(r.status,204);
+ r=await worker.fetch(make('/api/ai/agent/next',{Authorization:`Bearer ${env.AI_ACCESS_TOKEN}`,'X-HanSearch-AI-Version':'2'}),env);assert.equal((await r.json()).mode,'web');
+ r=await worker.fetch(make(`/api/ai/agent/progress/${webJob.id}`,{}, {stage:'web_search'}),env);assert.equal(r.status,401);
+ const partial={query:'추가 확인',summary:'기존 내부 답변',results:[{id:1,score:1}],coverage:'none'};
+ r=await worker.fetch(make(`/api/ai/agent/progress/${webJob.id}`,{Authorization:`Bearer ${env.AI_ACCESS_TOKEN}`},{stage:'web_search',result:partial}),env);assert.equal(r.status,200);
+ r=await worker.fetch(make(`/api/ai/jobs/${webJob.id}`,{Authorization:`Bearer ${jwt}`}),env);const progress=await r.json();assert.equal(progress.stage,'web_search');assert.deepEqual(progress.result,partial);
+ const final={...partial,web:{status:'complete',summary:'외부 답변',sources:[{number:1,title:'출처',url:'https://example.com'}]}};
+ r=await worker.fetch(make(`/api/ai/agent/complete/${webJob.id}`,{Authorization:`Bearer ${env.AI_ACCESS_TOKEN}`},{result:final}),env);assert.equal(r.status,200);
+ r=await worker.fetch(make(`/api/ai/jobs/${webJob.id}`,{Authorization:`Bearer ${jwt}`}),env);assert.deepEqual((await r.json()).result,final);
+ r=await worker.fetch(make(`/api/ai/agent/progress/${webJob.id}`,{Authorization:`Bearer ${env.AI_ACCESS_TOKEN}`},{stage:'web_analysis'}),env);assert.equal(r.status,404);
  globalThis.fetch=async()=>{throw new Error('offline');};r=await worker.fetch(make('/api/ai/jobs',{Authorization:`Bearer ${jwt}`},{query:'질문'}),env);assert.equal(r.status,503);
 } finally {globalThis.fetch=originalFetch;}
 console.log('PASS: approved-session enforcement, JWT verification delegation, owner spoof/read isolation, revoked account denial, and independent Mac agent authentication');
+

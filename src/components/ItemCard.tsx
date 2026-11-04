@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Star, Edit3, Trash2, Copy, Check, Image as ImageIcon } from 'lucide-react';
+import { Star, Edit3, Trash2, Copy, Check, MessageSquare, Image as ImageIcon } from 'lucide-react';
+import { ItemComments } from './ItemComments';
 import type { InfoItem } from '../types';
 
 import { HighlightText } from './HighlightText';
@@ -25,6 +26,7 @@ const ItemCardComponent: React.FC<ItemCardProps> = ({
   onOpenImage,
 }) => {
   const [copied, setCopied] = useState(false);
+  const [commentsOpen, setCommentsOpen] = useState(false);
   const images = parseImageUrls(item.이미지들);
   const categories = parseCategories(item.키워드);
 
@@ -146,6 +148,7 @@ const ItemCardComponent: React.FC<ItemCardProps> = ({
       {/* Footer / Meta & Actions */}
       <div className="pt-3 mt-1 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500 pl-6">
         <div className="flex items-center gap-2 font-medium">
+          {item.id && <><button type="button" aria-expanded={commentsOpen} aria-controls={`comments-${item.id}`} onClick={() => setCommentsOpen(open => !open)} className="text-slate-600 hover:text-blue-600 flex items-center gap-1"><MessageSquare size={13} /><span>댓글</span></button><span className="text-slate-300">|</span></>}
           <button
             onClick={() => onEdit(item)}
             className="text-slate-600 hover:text-blue-600 hover:underline flex items-center gap-1 transition-colors"
@@ -168,6 +171,7 @@ const ItemCardComponent: React.FC<ItemCardProps> = ({
           {item.updated_by_username && <span>최종 수정자: {item.updated_by_username}{item.last_edited_at ? ` · ${formatDate(item.last_edited_at)}` : ''}</span>}
         </div>
       </div>
+      {commentsOpen && item.id && <div id={`comments-${item.id}`}><ItemComments infoId={item.id} /></div>}
     </article>
   );
 };

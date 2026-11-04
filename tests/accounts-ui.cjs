@@ -17,9 +17,10 @@ const {AccountPassword}=load('src/components/AccountPassword.tsx',{'../lib/accou
 assert(renderToStaticMarkup(React.createElement(AccountPassword,{onClose(){}})).includes('minLength="8"'));
 const blank=()=>null;
 const {ItemCard}=load('src/components/ItemCard.tsx',{
+ './ItemComments':{ItemComments:blank},
  'react':{...React,default:React},
  './HighlightText':{HighlightText:({text})=>text},
- 'lucide-react':Object.fromEntries(['Star','Edit3','Trash2','Copy','Check','Image'].map(name=>[name,blank])),
+ 'lucide-react':Object.fromEntries(['Star','Edit3','Trash2','Copy','Check','Image','MessageSquare'].map(name=>[name,blank])),
  '../utils/helpers':{formatDate:value=>value,parseImageUrls:()=>[],parseCategories:()=>[],normalizeContentText:value=>value,copyToClipboard:async()=>true},
 });
 const cardProps={item:{id:1,키워드:'분류',키워드2:'제목',내용:'내용',created_by_username:'creator',updated_by_username:'lasteditor',last_edited_at:'2026-11-03'},searchQuery:'',isFavorite:false,onToggleFavorite(){},onEdit(){},onDelete(){},onOpenImage(){}};

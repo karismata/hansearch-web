@@ -1,16 +1,20 @@
 import { useState } from 'react';
 import type { FormEvent } from 'react';
 import type { AISearchResult } from '../lib/localAi';
+import { HighlightText } from './HighlightText';
 
 interface Props {
   result: AISearchResult;
   onSave: (question: string, answer: string) => Promise<void>;
+  variant?: 'internal' | 'web';
 }
 
-export function AIAnswerPanel({ result, onSave }: Props) {
+export function AIAnswerPanel({ result, onSave, variant = 'internal' }: Props) {
+  const sources = variant === 'web' ? result.web?.sources || [] : [];
+  const editableAnswer = (result.summary || '') + (sources.length ? '\n\n참고 자료:\n' + sources.map(source => `[웹 자료 ${source.number}] ${source.title}\n${source.url}`).join('\n') : '');
   const [editing, setEditing] = useState(false);
   const [question, setQuestion] = useState(result.query);
-  const [answer, setAnswer] = useState(result.summary || '');
+  const [answer, setAnswer] = useState(editableAnswer);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [saved, setSaved] = useState(false);
@@ -33,9 +37,9 @@ export function AIAnswerPanel({ result, onSave }: Props) {
   return (
     <div className="mb-3 p-4 bg-violet-50 border border-violet-200 rounded-xl">
       <div className="flex items-center justify-between gap-3 mb-2">
-        <p className="text-xs font-bold text-violet-800">{result.saved_answer ? '저장된 수정 답변' : '한주AI 답변'}</p>
-        {!editing && <button type="button" className="text-xs font-semibold text-violet-800 underline" onClick={() => {
-          setQuestion(result.query); setAnswer(result.summary || ''); setError(''); setSaved(false); setEditing(true);
+        <p className="text-xs font-bold text-violet-800">{result.saved_answer ? '저장된 수정 답변' : variant === 'web' ? sources.length ? '인터넷 자료 기반 추가 답변' : 'AI 일반 점검 · 현장 확인 필요' : '한주AI · 내부 자료 답변'}</p>
+        {!editing && result.summary?.trim() && <button type="button" className="text-xs font-semibold text-violet-800 underline" onClick={() => {
+          setQuestion(result.query); setAnswer(editableAnswer); setError(''); setSaved(false); setEditing(true);
         }}>답변 수정·저장</button>}
       </div>
       {editing ? (
@@ -55,7 +59,9 @@ export function AIAnswerPanel({ result, onSave }: Props) {
         </form>
       ) : (
         <>
-          <p className="text-sm text-slate-700 whitespace-pre-wrap">{result.summary?.trim() || '관련 자료는 찾았지만 한주AI 답변이 비어 있습니다. 답변을 직접 수정해 저장할 수 있습니다.'}</p>
+          <div className="text-sm text-slate-700 whitespace-pre-wrap break-words"><HighlightText query="" text={result.summary?.trim() || '관련 자료는 찾았지만 한주AI 답변이 비어 있습니다. 답변을 직접 수정해 저장할 수 있습니다.'} /></div>
+          {variant === 'internal' && result.coverage === 'partial' && <p className="mt-3 text-xs text-violet-700">일부 내용만 내부 자료로 확인했습니다. 부족한 내용은 인터넷에서 보완 검색할 수 있습니다.</p>}
+          {sources.length > 0 && <div className="mt-3 border-t border-violet-200 pt-3 space-y-2 text-xs text-slate-600"><p className="font-semibold">참고한 인터넷 자료</p>{sources.map(source => <div key={source.number}><HighlightText query="" text={`[웹 자료 ${source.number}] ${source.title}\n${source.url}`} /></div>)}</div>}
           {(saved || result.saved_answer) && <p role="status" className="mt-2 text-xs text-violet-700">같은 질문에 재사용하는 답변입니다. ‘AI 검증답변’ 카테고리에서 수정·삭제할 수 있습니다.</p>}
         </>
       )}
