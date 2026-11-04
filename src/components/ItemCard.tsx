@@ -1,13 +1,16 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Star, Edit3, Trash2, Copy, Check, MessageSquare, Image as ImageIcon } from 'lucide-react';
 import { ItemComments } from './ItemComments';
 import type { InfoItem } from '../types';
+import type { InfoComment } from '../lib/comments';
 
 import { HighlightText } from './HighlightText';
 import { formatDate, parseImageUrls, copyToClipboard, normalizeContentText, parseCategories } from '../utils/helpers';
 
 interface ItemCardProps {
   item: InfoItem;
+  notificationComment?: InfoComment;
+  notificationThreadId?: string;
   commentCount?: number;
   onCommentCountChange?: (id: number, total: number) => void;
   searchQuery: string;
@@ -20,6 +23,8 @@ interface ItemCardProps {
 
 const ItemCardComponent: React.FC<ItemCardProps> = ({
   item,
+  notificationComment,
+  notificationThreadId,
   commentCount = 0,
   onCommentCountChange,
   searchQuery,
@@ -31,6 +36,10 @@ const ItemCardComponent: React.FC<ItemCardProps> = ({
 }) => {
   const [copied, setCopied] = useState(false);
   const [commentsOpen, setCommentsOpen] = useState(false);
+  const [allComments, setAllComments] = useState(false);
+  useEffect(() => {
+    if (notificationComment) { setCommentsOpen(true); setAllComments(false); }
+  }, [notificationComment]);
   const handleTotalChange = useCallback((total: number) => {
     if (item.id != null) onCommentCountChange?.(item.id, total);
   }, [item.id, onCommentCountChange]);
@@ -178,7 +187,10 @@ const ItemCardComponent: React.FC<ItemCardProps> = ({
           {item.updated_by_username && <span>최종 수정자: {item.updated_by_username}{item.last_edited_at ? ` · ${formatDate(item.last_edited_at)}` : ''}</span>}
         </div>
       </div>
-      {commentsOpen && item.id && <div id={`comments-${item.id}`}><ItemComments infoId={item.id} onTotalChange={handleTotalChange} /></div>}
+      {commentsOpen && item.id && <div id={`comments-${item.id}`}>
+        {notificationThreadId && <button type="button" onClick={() => setAllComments(value => !value)} className="mt-3 text-xs font-semibold text-blue-700">{allComments ? '알림의 댓글로 돌아가기' : '이 자료의 모든 댓글 보기'}</button>}
+        <ItemComments key={`${allComments ? 'all' : notificationThreadId || 'all'}-${notificationComment?.id || ''}`} infoId={item.id} threadId={allComments ? undefined : notificationThreadId} notificationComment={notificationComment} onTotalChange={handleTotalChange} />
+      </div>}
     </article>
   );
 };

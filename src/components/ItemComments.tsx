@@ -5,8 +5,8 @@ import { CommentEntry } from './CommentEntry';
 import { CommentReplies } from './CommentReplies';
 import { addComment, deleteComment, fetchComments, fetchCommentTotal, type InfoComment } from '../lib/comments';
 
-export function ItemComments({ infoId, onTotalChange, threadId }: {
-  infoId: number; onTotalChange?: (total: number) => void; threadId?: string;
+export function ItemComments({ infoId, onTotalChange, threadId, notificationComment }: {
+  infoId: number; onTotalChange?: (total: number) => void; threadId?: string; notificationComment?: InfoComment;
 }) {
   const { profile } = useAccount();
   const [comments, setComments] = useState<InfoComment[]>([]);
@@ -60,7 +60,7 @@ export function ItemComments({ infoId, onTotalChange, threadId }: {
     {error && <p role="alert" className="text-xs text-rose-700">{error}</p>}
     {!loading && !error && comments.length === 0 && <p className="text-xs text-slate-500">{threadId ? '삭제되었거나 확인할 수 없는 댓글입니다.' : '처리 경험이나 추가 확인 내용을 남겨 주세요.'}</p>}
     {!loading && comments.map(comment => <article key={comment.id} className="rounded-lg bg-slate-50 p-3 text-sm">
-      <CommentEntry comment={comment} busy={busy} onUpdated={updated => setComments(rows => rows.map(row => row.id === updated.id ? updated : row))} onDelete={() => {
+      <CommentEntry comment={comment} highlighted={comment.id === notificationComment?.id} busy={busy} onUpdated={updated => setComments(rows => rows.map(row => row.id === updated.id ? updated : row))} onDelete={() => {
         if (window.confirm('이 댓글과 달린 답글을 함께 삭제하시겠습니까?')) void mutate(async () => {
           await deleteComment(comment.id);
           setComments(rows => rows.filter(row => row.id !== comment.id)); setRootTotal(n => Math.max(0, n - 1));
@@ -69,7 +69,7 @@ export function ItemComments({ infoId, onTotalChange, threadId }: {
           catch { setRetry(n => n + 1); }
         });
       }} />
-      <CommentReplies infoId={infoId} parentId={comment.id} defaultOpen={comment.id === threadId} onCountDelta={delta => replaceTotal(totalRef.current + delta)} />
+      <CommentReplies infoId={infoId} parentId={comment.id} defaultOpen={comment.id === threadId} focusComment={notificationComment?.parent_id === comment.id ? notificationComment : undefined} onCountDelta={delta => replaceTotal(totalRef.current + delta)} />
     </article>)}
     {!threadId && comments.length < rootTotal && <button type="button" disabled={busy || loading} className="text-xs font-semibold text-blue-700" onClick={() => void mutate(async () => {
       const page = await fetchComments(infoId, comments.length);

@@ -46,6 +46,7 @@ const appMocks = {
   './components/AccountGate': gate,
   './utils/helpers': { getStoredFavorites: () => [], getStoredTags: () => [], parseCategories: value => [value] },
   './lib/localAi': { clearStoredAiToken() {} }, './lib/savedAiAnswers': {},
+  './lib/notifications': {},
   'lucide-react': { AlertTriangle: empty, Plus: empty, SearchX: empty, Loader2: empty },
 };
 for (const name of ['AccountAdmin', 'AccountPassword', 'QuickTags', 'DataModal', 'SettingsModal', 'HelpModal', 'ImageLightbox', 'AIAnswerPanel', 'ScrollToTop']) {
