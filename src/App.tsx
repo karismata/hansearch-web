@@ -177,6 +177,22 @@ export function App() {
   };
 
   // Search Submit
+  const handleGoHome = () => {
+    resetAiRequests();
+    setSearchInput('');
+    setActiveSearch('');
+    setSelectedCategory('');
+    setSortOption('latest');
+    setShowOnlyFavorites(false);
+    setIsAiSearchMode(false);
+    setAiSearchResult(null);
+    setAiSearchError(null);
+    setAiSearchStatus('pending');
+    setAiSearchElapsedSeconds(0);
+    setWebSearchStatus('pending');
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+  };
+
   const handleSearchSubmit = () => {
     resetAiRequests();
     if (searchInput.trim()) logSearch('search');
@@ -404,6 +420,7 @@ export function App() {
     <div className="min-h-screen bg-slate-100 flex flex-col selection:bg-blue-500 selection:text-white">
       {/* Header */}
       <Header
+        onGoHome={handleGoHome}
         onCommentCountChange={handleCommentCountChange}
         isConnected={isConnected}
         totalCount={items.length}

@@ -9,6 +9,7 @@ interface HeaderProps {
   filteredCount: number;
   isLoading: boolean;
   onRefresh: () => void;
+  onGoHome: () => void;
   onOpenSettingsModal: () => void;
   onOpenHelpModal: () => void;
   username: string;
@@ -24,7 +25,7 @@ interface HeaderProps {
   onCommentCountChange?: (id: number, total: number) => void;
 }
 
-export function Header({ isConnected, totalCount, filteredCount, isLoading, onRefresh,
+export function Header({ isConnected, totalCount, filteredCount, isLoading, onRefresh, onGoHome,
   onOpenSettingsModal, onOpenHelpModal, children, username, isMaster,
   onOpenAccounts, onChangePassword, onSignOut, activityWarning, filtersOpen, activeFilterCount, onToggleFilters, onCommentCountChange }: HeaderProps) {
   const [open, setOpen] = useState(false);
@@ -48,8 +49,13 @@ export function Header({ isConnected, totalCount, filteredCount, isLoading, onRe
   return (
     <header className="sticky top-0 z-30 border-b border-slate-200 bg-white shadow-xs">
       <div className="mx-auto grid max-w-7xl grid-cols-[1fr_auto] items-center gap-x-3 gap-y-2 px-4 py-3 sm:px-6 lg:grid-cols-[auto_minmax(0,1fr)_auto]">
-        <h1 className="col-start-1 row-start-1 flex items-center gap-2 whitespace-nowrap text-base font-black tracking-tight text-slate-800">
-          <Layers size={20} className="shrink-0 text-blue-600" aria-hidden="true" /><span>HanSearch</span>
+        <h1 className="col-start-1 row-start-1 whitespace-nowrap text-base font-black tracking-tight text-slate-800">
+          <a href="/" aria-label="한서치 처음 화면으로" title="처음 화면으로" className="inline-flex items-center gap-2 rounded-lg hover:text-blue-700 focus-visible:outline-2 focus-visible:outline-blue-500" onClick={event => {
+            if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+            event.preventDefault(); setOpen(false); onGoHome();
+          }}>
+            <Layers size={20} className="shrink-0 text-blue-600" aria-hidden="true" /><span>HanSearch</span>
+          </a>
         </h1>
         <div className="col-span-2 col-start-1 row-start-2 min-w-0 lg:col-span-1 lg:col-start-2 lg:row-start-1">{children}</div>
         <div className="col-start-2 row-start-1 flex items-center gap-1.5 lg:col-start-3">

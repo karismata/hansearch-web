@@ -18,6 +18,7 @@ const actualHighlight=load('src/components/HighlightText.tsx',{'../utils/helpers
 const {AIAnswerPanel}=load('src/components/AIAnswerPanel.tsx',{'./HighlightText':actualHighlight});
 let calls=[],saveCalls=[];
 const jobs=[];
+const scrolls=[];window.scrollTo=options=>scrolls.push(options);
 const blank=()=>null;
 const components=Object.fromEntries(['ScrollToTop','AccountAdmin','AccountPassword','QuickTags','ItemCard','DataModal','SettingsModal','HelpModal','ImageLightbox'].map(name=>[`./components/${name}`,{[name]:blank}]));
 const supabase={getDefaultConfig:()=>({url:'https://example.test',anonKey:'public',tableName:'info'}),fetchAllItems:async()=>[{id:1,키워드:'분류',키워드2:'제목',내용:'자료'}]};
@@ -27,8 +28,13 @@ const {App}=load('src/App.tsx',{
   './utils/helpers':{getStoredFavorites:()=>[],getStoredTags:()=>[],parseCategories:()=>[],saveStoredFavorites(){},saveStoredTags(){}},
   './lib/savedAiAnswers':{fetchSavedAiAnswer:async()=>null,saveAiAnswer:async(q,a)=>{saveCalls.push([q,a]);return {id:2,키워드:'AI 검증답변',키워드2:q,내용:a};}},
   './lib/localAi':{clearStoredAiToken(){},runAISearch:(q,status,options)=>new Promise((resolve,reject)=>{calls.push([q,options.mode||'auto']);jobs.push({q,status,options,resolve,reject});})},
-  './components/Header':{Header:({children})=>React.createElement('header',null,children)},
-  './components/SearchBar':{SearchFilters:blank,SearchBar:props=>React.createElement('div',null,
+  './components/Header':{Header:({children,onGoHome,onToggleFilters})=>React.createElement('header',null,
+    React.createElement('button',{onClick:onGoHome},'홈'),React.createElement('button',{onClick:onToggleFilters},'옵션'),children)},
+  './components/SearchBar':{SearchFilters:props=>React.createElement('div',{'data-filters':true,'data-category':props.selectedCategory,'data-sort':props.sortOption,'data-favorites':props.showOnlyFavorites},
+    React.createElement('button',{onClick:()=>props.onChangeCategory('분류')},'분류 선택'),
+    React.createElement('button',{onClick:()=>props.onChangeSort('oldest')},'오래된순'),
+    React.createElement('button',{onClick:props.onToggleFavorites},'즐겨찾기 선택')),SearchBar:props=>React.createElement('div',null,
+    React.createElement('input',{'aria-label':'검색어',value:props.query,readOnly:true}),
     React.createElement('button',{onClick:()=>props.onChangeQuery('포스 전원')},'질문 입력'),
     React.createElement('button',{onClick:props.onAiSearchSubmit},'AI 검색'),
     React.createElement('button',{onClick:props.onSearchSubmit},'일반 검색'))},
@@ -59,6 +65,19 @@ const resolve=async(index,value)=>act(async()=>jobs[index].resolve({query:jobs[i
   await click('AI 검색');const previous=jobs.length-1;
   await click('일반 검색');assert(jobs[previous].options.signal.aborted);
   await resolve(previous,{summary:'늦게 도착한 이전 답변'});assert(!container.textContent.includes('늦게 도착한 이전 답변'));
+  await click('옵션');await click('분류 선택');await click('오래된순');await click('즐겨찾기 선택');
+  await click('AI 검색');const homeInternal=jobs.length-1;
+  await click('인터넷에서 추가 확인');const homeWeb=jobs.length-1;
+  await click('홈');
+  assert(jobs[homeInternal].options.signal.aborted && jobs[homeWeb].options.signal.aborted);
+  assert.equal(container.querySelector('[aria-label="검색어"]').value,'');
+  assert.equal(container.querySelector('[data-filters]').dataset.category,'');
+  assert.equal(container.querySelector('[data-filters]').dataset.sort,'latest');
+  assert.equal(container.querySelector('[data-filters]').dataset.favorites,'false');
+  assert.deepEqual(scrolls.at(-1),{top:0,left:0,behavior:'auto'});
+  await resolve(homeInternal,{summary:'홈 이동 뒤의 이전 AI 답변'});
+  await resolve(homeWeb,{web:{status:'complete',summary:'홈 이동 뒤의 이전 웹 답변',sources:[]}});
+  assert(!container.textContent.includes('홈 이동 뒤의 이전'),'Home cannot be overwritten by in-flight AI/web results');
   await act(async()=>root.unmount());
 
   root=createRoot(container);
