@@ -16,7 +16,7 @@ server = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(server)
 
 BODY = '전원 케이블이 연결되어 있는지 확인하고 어댑터 표시등을 점검하세요.'
-WEB_ANSWER = json.dumps({'summary': BODY + ' [웹 자료 1]', 'source_numbers': [1], 'evidence': [{'source_number': 1, 'quote': BODY}]})
+WEB_ANSWER = json.dumps({'checks': ['전원 케이블 연결 상태를 확인하세요.', '어댑터 표시등을 확인하세요.', '전원이 공급되는지 확인하세요.'], 'decision': '표시등 상태에 따라 전원 공급과 본체 문제를 구분하세요.', 'source_numbers': [1]})
 
 ITEM = {'id': 10, '키워드2': '프린터 오류', '내용': '내부 전용 정보', 'embedding': [1, 0]}
 
@@ -196,7 +196,7 @@ class FallbackTests(unittest.TestCase):
             result = server.web_search_answer('질문')
         request.assert_called_once()
         self.assertTrue(result['cached'])
-        self.assertIn('재사용', result['message'])
+        self.assertLess(len(result['summary']), 500)
         self.assertEqual(result['sources'][0]['url'], 'https://example.com/manual')
 
     def test_tavily_quota_does_not_retry_or_fallback_to_paid_search(self):
@@ -223,7 +223,7 @@ class FallbackTests(unittest.TestCase):
 
     def test_no_web_evidence_produces_clearly_unverified_general_guidance(self):
         with patch.object(server, 'TAVILY_API_KEY', 'synthetic'), patch.object(server, 'request_json', return_value={'results': []}), \
-                patch.object(server, 'ollama_answer', return_value='AI 추정·현장 확인 필요\n전원 공급 여부를 구분하세요.'):
+                patch.object(server, 'ollama_answer', return_value=json.dumps({'checks': ['전원 공급 여부를 확인하세요.'], 'decision': '모델별 점검은 추가 확인이 필요합니다.', 'source_numbers': []})):
             result = server.web_search_answer('질문')
         self.assertEqual(result['status'], 'empty')
         self.assertEqual(result['sources'], [])
@@ -237,26 +237,52 @@ class FallbackTests(unittest.TestCase):
         self.assertEqual(result['status'], 'error')
         self.assertEqual(len(result['sources']), 1)
 
-    def test_body_is_read_and_only_real_quoted_evidence_is_accepted(self):
+    def test_body_is_read_and_concise_checks_keep_real_sources(self):
         response = {'results': [{'title': '매뉴얼', 'url': 'https://example.com/manual', 'content': '링크 소개뿐', 'raw_content': BODY}]}
         with patch.object(server, 'request_json', return_value=response), patch.object(server, 'TAVILY_API_KEY', 'synthetic'), patch.object(server, 'ollama_answer', return_value=WEB_ANSWER) as model:
             result = server.web_search_answer('포스 전원')
         self.assertEqual(result['status'], 'complete')
         self.assertTrue(result['sources'][0]['body_checked'])
-        self.assertEqual(result['sources'][0]['evidence_quote'], BODY)
+        self.assertEqual(result['sources'][0]['body_excerpt'], BODY)
+        self.assertLess(len(result['summary']), 500)
+        self.assertIn('1.', result['summary'])
         self.assertIn(BODY, model.call_args.args[1])
 
-    def test_invented_body_evidence_or_only_links_are_rejected(self):
+    def test_failed_analysis_never_dumps_raw_pages_into_answer(self):
         response = {'results': [{'title': '매뉴얼', 'url': 'https://example.com/manual', 'content': '소개', 'raw_content': BODY}]}
-        for answer in [
-            {'summary': BODY, 'source_numbers': [1], 'evidence': [{'source_number': 1, 'quote': '이 사이트에 없는 구체적인 설정 방법입니다.'}]},
-            {'summary': '[웹 자료 1] https://example.com/manual', 'source_numbers': [1], 'evidence': [{'source_number': 1, 'quote': BODY}]},
-        ]:
-            with patch.object(server, 'request_json', return_value=response), patch.object(server, 'TAVILY_API_KEY', 'synthetic'), patch.object(server, 'ollama_answer', return_value=json.dumps(answer)):
-                result = server.web_search_answer('질문')
-            self.assertEqual(result['status'], 'error')
-            self.assertIn('본문 발췌', result['summary'])
-            self.assertIn(BODY, result['summary'])
+        with patch.object(server, 'request_json', return_value=response) as request, patch.object(server, 'TAVILY_API_KEY', 'synthetic'), patch.object(server, 'ollama_answer', return_value='invalid JSON') as model:
+            result = server.web_search_answer('질문')
+        self.assertEqual(result['status'], 'error')
+        self.assertLess(len(result['summary']), 150)
+        self.assertNotIn(BODY, result['summary'])
+        self.assertEqual(result['sources'][0]['body_excerpt'], BODY)
+        self.assertEqual(model.call_count, 2)
+        request.assert_called_once()
+
+    def test_local_format_retry_can_recover_without_another_web_request(self):
+        response = {'results': [{'title': '매뉴얼', 'url': 'https://example.com/manual', 'raw_content': BODY}]}
+        with patch.object(server, 'request_json', return_value=response) as request, patch.object(server, 'TAVILY_API_KEY', 'synthetic'), patch.object(server, 'ollama_answer', side_effect=['bad JSON', WEB_ANSWER]) as model:
+            result = server.web_search_answer('질문')
+        self.assertEqual(result['status'], 'complete')
+        self.assertEqual(model.call_count, 2)
+        request.assert_called_once()
+
+    def test_social_video_results_are_excluded_and_answers_cannot_be_links(self):
+        response = {'results': [{'title': '영상', 'url': 'https://www.youtube.com/watch?v=example', 'raw_content': BODY},
+                                {'title': '매뉴얼', 'url': 'https://example.com/manual', 'raw_content': BODY}]}
+        bad_answer = json.dumps({'checks': ['https://example.com/manual'], 'decision': '', 'source_numbers': [1]})
+        with patch.object(server, 'request_json', return_value=response) as request, patch.object(server, 'TAVILY_API_KEY', 'synthetic'), patch.object(server, 'ollama_answer', return_value=bad_answer):
+            result = server.web_search_answer('질문')
+        self.assertEqual(result['status'], 'error')
+        self.assertEqual(len(result['sources']), 1)
+        self.assertIn('youtube.com', request.call_args.kwargs['payload']['exclude_domains'])
+
+    def test_oversized_generated_answer_is_not_passed_to_the_ui(self):
+        response = {'results': [{'title': '매뉴얼', 'url': 'https://example.com/manual', 'raw_content': BODY}]}
+        long_answer = json.dumps({'checks': ['아주 긴 원문 ' * 300], 'decision': '', 'source_numbers': [1]})
+        with patch.object(server, 'request_json', return_value=response), patch.object(server, 'TAVILY_API_KEY', 'synthetic'), patch.object(server, 'ollama_answer', return_value=long_answer):
+            result = server.web_search_answer('질문')
+        self.assertLess(len(result['summary']), 150)
 
     def test_snippets_are_not_mislabeled_as_read_page_bodies(self):
         response = {'results': [{'title': '소개', 'url': 'https://example.com/manual', 'content': BODY}]}

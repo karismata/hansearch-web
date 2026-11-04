@@ -46,6 +46,7 @@ const resolve=async(index,value)=>act(async()=>jobs[index].resolve({query:jobs[i
   await resolve(1,{web});
   assert(container.textContent.includes('내부 자료 확인 답변'));assert(container.textContent.includes('외부 점검 방법'));assert(container.textContent.includes('https://example.com/manual'));
   assert(container.textContent.includes('본문 확인'));assert.equal(container.querySelector('blockquote').textContent,'실제 본문에 있는 점검 안내');
+  assert.equal(container.querySelector('details').open,false,'Sources and raw evidence start collapsed');
   // Saving the web answer retains source URLs, with the existing correction flow.
   await act(async()=>[...container.querySelectorAll('button')].filter(b=>b.textContent==='답변 수정·저장')[1].click());
   assert(container.querySelector('textarea').value.includes('https://example.com/manual'));
@@ -54,6 +55,15 @@ const resolve=async(index,value)=>act(async()=>jobs[index].resolve({query:jobs[i
   await click('AI 검색');const previous=jobs.length-1;
   await click('일반 검색');assert(jobs[previous].options.signal.aborted);
   await resolve(previous,{summary:'늦게 도착한 이전 답변'});assert(!container.textContent.includes('늦게 도착한 이전 답변'));
+  await act(async()=>root.unmount());
+
+  root=createRoot(container);
+  const legacy='본문 자료를 읽었지만 한주AI가 해결 방법 정리를 완료하지 못했습니다. [웹 자료 1] 본문 발췌 (해결 방법 검증 전) ' + '장황한 페이지 원문 '.repeat(100);
+  await act(async()=>root.render(React.createElement(AIAnswerPanel,{variant:'web',result:{query:'포스 전원',summary:legacy,web:{status:'error',sources:[]}},onSave:async()=>{}})));
+  const detail=container.querySelector('details');
+  assert.equal(detail.open,false);
+  assert(!detail.previousElementSibling.textContent.includes('장황한 페이지 원문'),'Legacy raw dumps stay out of the visible summary');
+  assert(detail.textContent.includes('장황한 페이지 원문'),'Full legacy text remains available on demand');
   await act(async()=>root.unmount());
 
   // Lazy comments, safe text, author-only editing, master deletion, and no mount-time fetch on cards.

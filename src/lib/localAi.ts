@@ -37,7 +37,8 @@ export interface WebAnswer {
   status: 'complete' | 'error' | 'not_configured' | 'empty';
   summary: string;
   message?: string;
-  sources: Array<{ number: number; title: string; url: string; body_checked?: boolean; evidence_quote?: string }>;
+  cached?: boolean;
+  sources: Array<{ number: number; title: string; url: string; body_checked?: boolean; evidence_quote?: string; body_excerpt?: string }>;
 }
 
 export type AISearchStatus = 'pending' | 'processing' | 'retrieving' | 'analyzing' | 'web_search' | 'web_analysis';
