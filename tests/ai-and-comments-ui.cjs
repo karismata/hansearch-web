@@ -19,17 +19,22 @@ const {AIAnswerPanel}=load('src/components/AIAnswerPanel.tsx',{'./HighlightText'
 let calls=[],saveCalls=[];
 const jobs=[];
 const scrolls=[];window.scrollTo=options=>scrolls.push(options);
+const focusedScrolls=[];window.HTMLElement.prototype.scrollIntoView=function(){focusedScrolls.push(this.dataset.commentId);};
+const navigationRequests=[];
+const jumpNotice={id:'jump',info_id:77,comment_id:'oldreply',info_title:'알림 대상 자료',actor_username:'other',kind:'reply',created_at:'date',read_at:null};
 const blank=()=>null;
 const components=Object.fromEntries(['ScrollToTop','AccountAdmin','AccountPassword','QuickTags','ItemCard','DataModal','SettingsModal','HelpModal','ImageLightbox'].map(name=>[`./components/${name}`,{[name]:blank}]));
 const supabase={getDefaultConfig:()=>({url:'https://example.test',anonKey:'public',tableName:'info'}),fetchAllItems:async()=>[{id:1,키워드:'분류',키워드2:'제목',내용:'자료'}]};
 const {App}=load('src/App.tsx',{
   ...components,...account,
   './lib/supabase':supabase,'./lib/accounts':{recordSearch:async()=>{}},
+  './lib/notifications':{fetchNotificationContext:notification=>new Promise((resolve,reject)=>navigationRequests.push({notification,resolve,reject}))},
   './utils/helpers':{getStoredFavorites:()=>[],getStoredTags:()=>[],parseCategories:()=>[],saveStoredFavorites(){},saveStoredTags(){}},
   './lib/savedAiAnswers':{fetchSavedAiAnswer:async()=>null,saveAiAnswer:async(q,a)=>{saveCalls.push([q,a]);return {id:2,키워드:'AI 검증답변',키워드2:q,내용:a};}},
   './lib/localAi':{clearStoredAiToken(){},runAISearch:(q,status,options)=>new Promise((resolve,reject)=>{calls.push([q,options.mode||'auto']);jobs.push({q,status,options,resolve,reject});})},
-  './components/Header':{Header:({children,onGoHome,onToggleFilters})=>React.createElement('header',null,
-    React.createElement('button',{onClick:onGoHome},'홈'),React.createElement('button',{onClick:onToggleFilters},'옵션'),children)},
+  './components/Header':{Header:({children,onGoHome,onToggleFilters,onOpenNotification})=>React.createElement('header',null,
+    React.createElement('button',{onClick:onGoHome},'홈'),React.createElement('button',{onClick:onToggleFilters},'옵션'),React.createElement('button',{onClick:()=>onOpenNotification(jumpNotice)},'알림 자료 열기'),children)},
+  './components/ItemCard':{ItemCard:props=>React.createElement('article',{'data-item':props.item.id,'data-thread':props.notificationThreadId,'data-target':props.notificationComment?.id},props.item.키워드2,props.item.내용)},
   './components/SearchBar':{SearchFilters:props=>React.createElement('div',{'data-filters':true,'data-category':props.selectedCategory,'data-sort':props.sortOption,'data-favorites':props.showOnlyFavorites},
     React.createElement('button',{onClick:()=>props.onChangeCategory('분류')},'분류 선택'),
     React.createElement('button',{onClick:()=>props.onChangeSort('oldest')},'오래된순'),
@@ -78,6 +83,20 @@ const resolve=async(index,value)=>act(async()=>jobs[index].resolve({query:jobs[i
   await resolve(homeInternal,{summary:'홈 이동 뒤의 이전 AI 답변'});
   await resolve(homeWeb,{web:{status:'complete',summary:'홈 이동 뒤의 이전 웹 답변',sources:[]}});
   assert(!container.textContent.includes('홈 이동 뒤의 이전'),'Home cannot be overwritten by in-flight AI/web results');
+  await click('질문 입력');await click('일반 검색');await click('알림 자료 열기');
+  assert(container.textContent.includes('해당 자료와 댓글을 불러오는 중'));
+  await act(async()=>navigationRequests[0].resolve({item:{id:77,키워드:'분류',키워드2:'알림 대상 자료',내용:'알림 대상 글의 전체 내용'},threadId:'parent77',comment:{id:'oldreply',parent_id:'parent77',info_id:77,body:'찾아갈 답글'}}));
+  assert(container.textContent.includes('알림 대상 글의 전체 내용'));
+  assert.equal(container.querySelectorAll('article[data-item]').length,1,'Notification navigation shows the target article despite previous search/filter state');
+  assert.equal(container.querySelector('article[data-item]').dataset.thread,'parent77');
+  assert.equal(container.querySelector('article[data-item]').dataset.target,'oldreply');
+  await click('전체 자료 보기');assert(!container.textContent.includes('알림에서 연 자료'));
+  await click('알림 자료 열기');await click('홈');
+  await act(async()=>navigationRequests[1].resolve({item:{id:77,키워드2:'뒤늦게 도착한 알림 자료',내용:'늦은 본문'},threadId:'parent77',comment:{id:'oldreply'}}));
+  assert(!container.textContent.includes('뒤늦게 도착한 알림 자료'),'Late navigation cannot overwrite home');
+  await click('알림 자료 열기');await act(async()=>navigationRequests[2].reject(new Error('삭제되었거나 확인할 수 없는 자료·댓글입니다.')));
+  assert(container.querySelector('[role="alert"]').textContent.includes('삭제되었거나'));
+  assert.equal(container.querySelectorAll('article[data-item]').length,0,'Missing targets do not expose a stale cached article');
   await act(async()=>root.unmount());
 
   root=createRoot(container);
@@ -99,11 +118,11 @@ const resolve=async(index,value)=>act(async()=>jobs[index].resolve({query:jobs[i
   await act(async()=>root.unmount());
 
   // Lazy comments, safe text, author-only editing, master deletion, and no mount-time fetch on cards.
-  let fetches=0,replyFetches=0,remoteTotal=3;const reported=[];const report=total=>reported.push(total);let replyRows=[];const addedCalls=[];
+  let fetches=0,replyFetches=0,remoteTotal=3;const reported=[];const report=total=>reported.push(total);let replyRows=[];const addedCalls=[],replyOffsets=[];
   const comment={id:'c1',info_id:1,parent_id:null,author_id:'someone-else',author_username:'other',body:'<script>unsafe()</script>',created_at:'date',updated_at:null};
   const commentApi={
     fetchComments:async()=>{fetches++;return {comments:[comment],total:remoteTotal,rootTotal:1};},
-    fetchReplies:async()=>{replyFetches++;return {comments:replyRows,total:replyRows.length};},
+    fetchReplies:async(_info,_parent,offset=0)=>{replyFetches++;replyOffsets.push(offset);return {comments:replyRows.slice(offset,offset+30),total:replyRows.length};},
     fetchCommentTotal:async()=>remoteTotal,
     addComment:async(infoId,body,parentId)=>{addedCalls.push([infoId,body,parentId]);const added={...comment,id:'reply1',parent_id:parentId,author_id:profile.id,body};replyRows=[added,...replyRows];remoteTotal++;return added;},
     editComment:async(id,body)=>({...comment,id,body,updated_at:'date'}),
@@ -142,24 +161,49 @@ const resolve=async(index,value)=>act(async()=>jobs[index].resolve({query:jobs[i
   window.confirm=()=>true;await click('삭제');assert.equal(reported.at(-1),4,'Delete immediately updates parent count');
   await act(async()=>root.unmount());
 
-  window.HTMLDialogElement.prototype.showModal=function(){this.setAttribute('open','');};
-  let unread=2,notificationFetches=0,readIds=[];const notice={id:'n1',info_id:1,comment_id:'reply1',actor_username:'other',info_title:'자료 제목',kind:'reply',created_at:'date',read_at:null};
+  const oldReply={...comment,id:'oldreply',parent_id:'c1',body:'알림에서 바로 찾아갈 오래된 답글'};
+  replyRows=[...Array.from({length:35},(_,i)=>({...comment,id:'page-reply-'+i,parent_id:'c1',body:'일반 답글 '+i})),oldReply];remoteTotal=37;
+  root=createRoot(container);
+  await act(async()=>root.render(React.createElement(ItemCard,{item:{id:1,키워드:'',키워드2:'알림 글 전체 제목',내용:'알림 글 전체 본문'},notificationThreadId:'c1',notificationComment:oldReply,commentCount:37,onCommentCountChange:(_id,n)=>report(n),searchQuery:'',isFavorite:false})));
+  assert(container.textContent.includes('알림 글 전체 본문'));
+  assert(container.querySelector('[aria-label="댓글 37개 접기"]'));
+  assert(container.textContent.includes(oldReply.body),'A notified reply beyond page one is shown immediately');
+  assert.equal(document.activeElement.dataset.commentId,'oldreply');assert.equal(focusedScrolls.at(-1),'oldreply');
+  assert.equal(replyOffsets.at(-1),0);
+  await click('이 자료의 모든 댓글 보기');await click('알림의 댓글로 돌아가기');
+  assert.equal(document.activeElement.dataset.commentId,'oldreply');
+  await click('답글 더 보기');assert.equal(replyOffsets.at(-1),30,'The pinned reply must not advance the pagination offset');
+  assert.equal(container.querySelectorAll('[data-comment-id="oldreply"]').length,1,'No duplicate target after loading its normal page');
+  await act(async()=>root.render(React.createElement(ItemCard,{item:{id:1,키워드:'',키워드2:'알림 글 전체 제목',내용:'알림 글 전체 본문'},notificationThreadId:'c1',notificationComment:comment,commentCount:37,onCommentCountChange:(_id,n)=>report(n),searchQuery:'',isFavorite:false})));
+  assert.equal(document.activeElement.dataset.commentId,'c1','Root comment notifications focus the root comment');
+  await act(async()=>root.unmount());
+
+  let unread=2,notificationFetches=0,readIds=[],holdReads=false;const readWaiters=[];const notice={id:'n1',info_id:1,comment_id:'reply1',actor_username:'other',info_title:'자료 제목',kind:'reply',created_at:'date',read_at:null};
   const {NotificationBell}=load('src/components/NotificationBell.tsx',{
     '../lib/notifications':{fetchUnreadCount:async()=>unread,fetchNotifications:async()=>{notificationFetches++;return {notifications:[notice,{...notice,id:'n2'}].map(row=>({...row,read_at:readIds.includes(row.id)?'date':null})),total:2};},
-      markNotificationRead:async id=>{readIds.push(id);unread--;},markNotificationsRead:async ids=>{readIds.push(...ids);unread-=ids.length;},
-      fetchNotificationContext:async()=>({item:{id:1,키워드2:'자료 제목',내용:'자료 내용'},threadId:'c1'})},
+      markNotificationRead:async id=>{if(holdReads)await new Promise(resolve=>readWaiters.push(resolve));readIds.push(id);unread--;},markNotificationsRead:async ids=>{readIds.push(...ids);unread-=ids.length;},
+      },
     '../utils/helpers':{formatDate:x=>x,normalizeContentText:x=>x},'./HighlightText':highlight,
     './ItemComments':{ItemComments:props=>React.createElement('p',{'data-thread':props.threadId||'all'},'알림의 댓글')},
   });
-  root=createRoot(container);await act(async()=>root.render(React.createElement(NotificationBell)));
+  const opened=[];
+  root=createRoot(container);await act(async()=>root.render(React.createElement(NotificationBell,{onOpenNotification:notification=>opened.push(notification)})));
   assert.equal(notificationFetches,0,'Only unread count is fetched before opening the bell');
   await act(async()=>container.querySelector('[aria-label="알림 2개 안 읽음"]').click());assert.equal(notificationFetches,1);
   await act(async()=>[...container.querySelectorAll('button')].find(b=>b.textContent.includes('other님이 내 댓글에 답글')).click());
-  assert.deepEqual(readIds,['n1']);assert(container.querySelector('dialog[open]'));assert.equal(container.querySelector('[data-thread]').dataset.thread,'c1');
-  await click('이 자료의 모든 댓글 보기');assert.equal(container.querySelector('[data-thread]').dataset.thread,'all');
-  await act(async()=>container.querySelector('[aria-label="알림 자료 닫기"]').click());assert.equal(document.body.style.overflow,'');
+  assert.deepEqual(readIds,['n1']);assert.equal(opened[0].comment_id,'reply1');assert.equal(opened[0].info_id,1);
+  assert.equal(container.querySelector('dialog'),null,'Notification clicks navigate in the main app');
   await act(async()=>container.querySelector('[aria-label="알림 1개 안 읽음"]').click());
   await click('표시된 알림 읽음');assert.equal(unread,0);
+  await act(async()=>container.querySelector('[aria-label="알림 0개 안 읽음"]').click());
+  unread=2;readIds.length=0;holdReads=true;
+  await act(async()=>container.querySelector('[title="알림"]').click());
+  await act(async()=>[...container.querySelectorAll('button')].filter(b=>b.textContent.includes('other님이 내 댓글에 답글'))[0].click());
+  await act(async()=>container.querySelector('[title="알림"]').click());
+  const secondNotice=[...container.querySelectorAll('button')].filter(b=>b.textContent.includes('other님이 내 댓글에 답글'))[1];
+  assert(!secondNotice.disabled,'Read marking cannot block navigation to another notification');
+  await act(async()=>secondNotice.click());assert.equal(opened.at(-1).id,'n2');
+  await act(async()=>readWaiters.forEach(resolve=>resolve()));
   await act(async()=>root.unmount());dom.window.close();
   console.log('PASS: manual web during analysis, internal answer preserved, cited corrections saved, stale results suppressed, lazy comments and author/master controls');
 })().catch(error=>{console.error(error);process.exit(1);});

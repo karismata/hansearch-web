@@ -27,6 +27,7 @@ import { useAccount } from './components/AccountGate';
 import { AccountAdmin } from './components/AccountAdmin';
 import { AccountPassword } from './components/AccountPassword';
 import { recordSearch } from './lib/accounts';
+import { fetchNotificationContext, type CommentNotification, type NotificationContext } from './lib/notifications';
 import { QuickTags } from './components/QuickTags';
 import { ItemCard } from './components/ItemCard';
 import { DataModal } from './components/DataModal';
@@ -58,6 +59,7 @@ export function App() {
   // Data State
   const [items, setItems] = useState<InfoItem[]>([]);
   const [commentCounts, setCommentCounts] = useState<Record<number, number>>({});
+  const [notificationView, setNotificationView] = useState<{ notification: CommentNotification; context?: NotificationContext; error?: string } | null>(null);
   const handleCommentCountChange = useCallback((id: number, total: number) => {
     setCommentCounts(current => current[id] === total ? current : { ...current, [id]: total });
   }, []);
@@ -96,6 +98,7 @@ export function App() {
   const aiJobId = useRef<string | undefined>(undefined);
 
   const resetAiRequests = () => {
+    setNotificationView(null);
     requestVersion.current += 1;
     aiAbort.current?.abort(); webAbort.current?.abort();
     webStarted.current = false;
@@ -200,6 +203,20 @@ export function App() {
     setAiSearchResult(null);
     setAiSearchError(null);
     setActiveSearch(searchInput.trim());
+  };
+
+  const handleOpenNotification = async (notification: CommentNotification) => {
+    handleGoHome();
+    const version = requestVersion.current;
+    setNotificationView({ notification });
+    try {
+      const context = await fetchNotificationContext(notification);
+      if (version !== requestVersion.current) return;
+      setItems(rows => [context.item, ...rows.filter(row => row.id !== context.item.id)]);
+      setNotificationView({ notification, context });
+    } catch (error) {
+      if (version === requestVersion.current) setNotificationView({ notification, error: error instanceof Error ? error.message : '알림의 자료와 댓글을 불러오지 못했습니다.' });
+    }
   };
 
   const handleAiSearchSubmit = async () => {
@@ -366,6 +383,7 @@ export function App() {
   }, [items, activeSearch, selectedCategory, showOnlyFavorites, favorites, sortOption, isAiSearchMode]);
 
   const visibleItems = useMemo(() => {
+    if (notificationView) return notificationView.context ? items.filter(item => item.id === notificationView.notification.info_id) : [];
     if (!isAiSearchMode) return filteredItems;
     if (!aiSearchResult) return [];
     const byId = new Map(filteredItems.map((item) => [Number(item.id), item]));
@@ -377,7 +395,7 @@ export function App() {
         seen.add(item.id);
         return true;
       });
-  }, [filteredItems, aiSearchResult, isAiSearchMode]);
+  }, [filteredItems, aiSearchResult, isAiSearchMode, notificationView, items]);
 
   // CRUD Actions
   const handleSaveItem = async (itemData: Omit<InfoItem, 'id' | 'created_at'>) => {
@@ -397,6 +415,7 @@ export function App() {
     try {
       await deleteItem(id, config);
       setItems((prev) => prev.filter((item) => item.id !== id));
+      setNotificationView(view => view?.notification.info_id === id ? null : view);
       setFavorites((prev) => prev.filter((favId) => favId !== id));
     } catch (err: any) {
       alert(`삭제 실패: ${err.message}`);
@@ -421,7 +440,7 @@ export function App() {
       {/* Header */}
       <Header
         onGoHome={handleGoHome}
-        onCommentCountChange={handleCommentCountChange}
+        onOpenNotification={notification => void handleOpenNotification(notification)}
         isConnected={isConnected}
         totalCount={items.length}
         filteredCount={visibleItems.length}
@@ -467,12 +486,12 @@ export function App() {
         <section id="search-options-panel" aria-label="검색 옵션 및 자주 찾는 검색어" hidden={!searchOptionsOpen} className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-xs space-y-3">
           <SearchFilters
             selectedCategory={selectedCategory}
-            onChangeCategory={setSelectedCategory}
+            onChangeCategory={value => { if (notificationView) resetAiRequests(); setSelectedCategory(value); }}
             categories={categoriesWithCount}
             sortOption={sortOption}
-            onChangeSort={setSortOption}
+            onChangeSort={value => { if (notificationView) resetAiRequests(); setSortOption(value); }}
             showOnlyFavorites={showOnlyFavorites}
-            onToggleFavorites={() => setShowOnlyFavorites(!showOnlyFavorites)}
+            onToggleFavorites={() => { if (notificationView) resetAiRequests(); setShowOnlyFavorites(!showOnlyFavorites); }}
           />
 
           {/* Quick Search Tag Chips */}
@@ -511,11 +530,21 @@ export function App() {
           <div className="flex items-center justify-between mb-3 px-1">
             <div className="flex items-center gap-2">
               <h2 className="text-sm font-bold text-slate-800 flex items-center gap-1.5">
-                <span className="text-blue-600">{isAiSearchMode ? '✨' : '🔍'}</span> {isAiSearchMode ? 'AI 검색 결과' : '검색 결과'}
+                <span className="text-blue-600">{isAiSearchMode ? '✨' : '🔍'}</span> {notificationView ? '알림에서 연 자료' : isAiSearchMode ? 'AI 검색 결과' : '검색 결과'}
               </h2>
             </div>
 
           </div>
+
+          {notificationView && <div className="mb-3 rounded-xl border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="font-semibold">{notificationView.notification.info_title || '알림의 자료'}</p>
+              <button type="button" onClick={handleGoHome} className="text-xs font-semibold text-blue-700 underline">전체 자료 보기</button>
+            </div>
+            {!notificationView.context && !notificationView.error && <p role="status" className="mt-2">해당 자료와 댓글을 불러오는 중...</p>}
+            {notificationView.error && <p role="alert" className="mt-2 text-rose-700">{notificationView.error}</p>}
+            {notificationView.context && <p className="mt-1 text-xs">알림의 댓글을 펼쳐 강조했습니다. 위쪽에서 글 내용과 첨부 이미지도 확인할 수 있습니다.</p>}
+          </div>}
 
           {aiSearchError && (
             <div className="mb-3 p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-800">
@@ -553,7 +582,7 @@ export function App() {
           </>}
 
           {/* Loading State */}
-          {isLoading && (
+          {isLoading && !notificationView && (
             <div className="flex flex-col items-center justify-center py-20 bg-white rounded-2xl border border-slate-200 shadow-xs">
               <Loader2 size={36} className="text-blue-600 animate-spin mb-3" />
               <p className="text-sm font-semibold text-slate-700">데이터를 불러오는 중입니다...</p>
@@ -562,7 +591,7 @@ export function App() {
           )}
 
           {/* Empty State */}
-          {!isLoading && !isAiSearching && !isAiSearchMode && visibleItems.length === 0 && (
+          {!notificationView && !isLoading && !isAiSearching && !isAiSearchMode && visibleItems.length === 0 && (
             <div className="flex flex-col items-center justify-center py-16 px-4 bg-white rounded-2xl border border-slate-200 shadow-xs text-center">
               <div className="p-4 bg-slate-50 text-slate-400 rounded-2xl mb-3">
                 <SearchX size={40} />
@@ -610,12 +639,14 @@ export function App() {
           )}
 
           {/* Cards Grid / List */}
-          {!isLoading && visibleItems.length > 0 && (
+          {(!isLoading || notificationView?.context) && visibleItems.length > 0 && (
             <div className="grid grid-cols-1 gap-3.5">
               {visibleItems.map((item) => (
                 <ItemCard
                   key={item.id}
                   item={item}
+                  notificationComment={notificationView?.context?.comment}
+                  notificationThreadId={notificationView?.context?.threadId}
                   commentCount={commentCounts[item.id!] || 0}
                   onCommentCountChange={handleCommentCountChange}
                   searchQuery={activeSearch}

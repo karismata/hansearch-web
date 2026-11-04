@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Settings, HelpCircle, RefreshCw, Layers, Download, Ellipsis, Users, LogOut, KeyRound, SlidersHorizontal } from 'lucide-react';
 import { NotificationBell } from './NotificationBell';
+import type { CommentNotification } from '../lib/notifications';
 
 interface HeaderProps {
   isConnected: boolean;
@@ -10,6 +11,7 @@ interface HeaderProps {
   isLoading: boolean;
   onRefresh: () => void;
   onGoHome: () => void;
+  onOpenNotification: (notification: CommentNotification) => void;
   onOpenSettingsModal: () => void;
   onOpenHelpModal: () => void;
   username: string;
@@ -22,12 +24,11 @@ interface HeaderProps {
   activeFilterCount: number;
   onToggleFilters: () => void;
   children: ReactNode;
-  onCommentCountChange?: (id: number, total: number) => void;
 }
 
-export function Header({ isConnected, totalCount, filteredCount, isLoading, onRefresh, onGoHome,
+export function Header({ isConnected, totalCount, filteredCount, isLoading, onRefresh, onGoHome, onOpenNotification,
   onOpenSettingsModal, onOpenHelpModal, children, username, isMaster,
-  onOpenAccounts, onChangePassword, onSignOut, activityWarning, filtersOpen, activeFilterCount, onToggleFilters, onCommentCountChange }: HeaderProps) {
+  onOpenAccounts, onChangePassword, onSignOut, activityWarning, filtersOpen, activeFilterCount, onToggleFilters }: HeaderProps) {
   const [open, setOpen] = useState(false);
   const root = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
@@ -63,7 +64,7 @@ export function Header({ isConnected, totalCount, filteredCount, isLoading, onRe
             className={`flex h-9 items-center gap-1.5 whitespace-nowrap rounded-lg border px-2 text-xs font-medium ${filtersOpen || activeFilterCount > 0 ? 'border-blue-200 bg-blue-50 text-blue-700' : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'}`}>
             <SlidersHorizontal size={14} aria-hidden="true" /><span className="hidden min-[360px]:inline">검색 옵션</span>{activeFilterCount > 0 && <span className="rounded-full bg-blue-600 px-1.5 text-[10px] leading-4 text-white">{activeFilterCount}</span>}
           </button>
-          <NotificationBell onCommentCountChange={onCommentCountChange} />
+          <NotificationBell onOpenNotification={onOpenNotification} />
         <div ref={root} className="relative shrink-0">
           <button ref={trigger} type="button" onClick={() => setOpen((value) => !value)} aria-label="관리 메뉴" title="관리 메뉴" aria-expanded={open} aria-controls={menuId}
             className="flex h-9 w-9 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-800 focus-visible:outline-2 focus-visible:outline-blue-500"><Ellipsis size={23} /></button>

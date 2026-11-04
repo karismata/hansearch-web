@@ -1,19 +1,27 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useAccount } from './AccountGate';
 import { HighlightText } from './HighlightText';
 import { editComment, type InfoComment } from '../lib/comments';
 import { formatDate } from '../utils/helpers';
 
-export function CommentEntry({ comment, busy, onDelete, onUpdated }: {
-  comment: InfoComment; busy: boolean; onDelete: () => void; onUpdated: (comment: InfoComment) => void;
+export function CommentEntry({ comment, busy, onDelete, onUpdated, highlighted = false }: {
+  comment: InfoComment; busy: boolean; onDelete: () => void; onUpdated: (comment: InfoComment) => void; highlighted?: boolean;
 }) {
   const { profile } = useAccount();
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(comment.body);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const element = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (highlighted) {
+      element.current?.scrollIntoView?.({ block: 'start', behavior: 'auto' });
+      element.current?.focus({ preventScroll: true });
+    }
+  }, [highlighted]);
   const disabled = busy || saving;
-  return <div data-comment-id={comment.id}>
+  return <div ref={element} data-comment-id={comment.id} tabIndex={highlighted ? -1 : undefined} className={highlighted ? 'scroll-mt-44 rounded-lg bg-blue-50 p-2 ring-2 ring-blue-400 outline-none' : undefined}>
+    {highlighted && <p className="mb-2 text-xs font-bold text-blue-700">{comment.parent_id ? '알림의 답글' : '알림의 댓글'}</p>}
     <div className="mb-1 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
       <span><strong className="text-slate-700">{comment.author_username}</strong> · {formatDate(comment.created_at)}{comment.updated_at ? ' · 수정됨' : ''}</span>
       <div className="flex gap-3">
