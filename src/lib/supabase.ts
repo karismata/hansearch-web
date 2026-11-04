@@ -128,14 +128,17 @@ export async function fetchAllItems(config?: SupabaseConfig): Promise<InfoItem[]
 
   const { data, error } = await client
     .from(targetConfig.tableName || 'info')
-    .select('*')
+    .select('*, _comment_counts:info_comments(count)')
     .order('created_at', { ascending: false });
 
   if (error) {
     throw error;
   }
 
-  return (data || []) as InfoItem[];
+  return (data || []).map((row) => {
+    const { _comment_counts, ...item } = row;
+    return { ...item, comment_count: Number(_comment_counts?.[0]?.count) || 0 } as InfoItem;
+  });
 }
 
 /**
@@ -326,5 +329,3 @@ export async function uploadImageToStorage(file: File, config?: SupabaseConfig):
 
   return publicUrlData.publicUrl;
 }
-
-

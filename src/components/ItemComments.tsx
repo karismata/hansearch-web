@@ -5,7 +5,7 @@ import { HighlightText } from './HighlightText';
 import { addComment, deleteComment, editComment, fetchComments, type InfoComment } from '../lib/comments';
 import { formatDate } from '../utils/helpers';
 
-export function ItemComments({ infoId }: { infoId: number }) {
+export function ItemComments({ infoId, onTotalChange }: { infoId: number; onTotalChange?: (total: number) => void }) {
   const { profile } = useAccount();
   const [comments, setComments] = useState<InfoComment[]>([]);
   const [total, setTotal] = useState(0);
@@ -27,6 +27,10 @@ export function ItemComments({ infoId }: { infoId: number }) {
     return () => { active = false; };
   }, [infoId, retry]);
 
+  useEffect(() => {
+    if (!loading && !error) onTotalChange?.(total);
+  }, [total, loading, error, onTotalChange]);
+
   const mutate = async (action: () => Promise<void>) => {
     setBusy(true); setError('');
     try { await action(); }
@@ -39,6 +43,7 @@ export function ItemComments({ infoId }: { infoId: number }) {
     void mutate(async () => {
       const added = await addComment(infoId, body);
       setComments(rows => [added, ...rows]); setTotal(n => n + 1); setBody('');
+      onTotalChange?.(total + 1);
     });
   };
   return <section aria-label="자료 댓글" className="mt-3 border-t border-slate-100 pt-3 space-y-3">
@@ -57,6 +62,7 @@ export function ItemComments({ infoId }: { infoId: number }) {
           {(comment.author_id === profile.id || profile.role === 'master') && <button type="button" disabled={busy} className="text-slate-600" onClick={() => {
             if (window.confirm('이 댓글을 삭제하시겠습니까?')) void mutate(async () => {
               await deleteComment(comment.id); setComments(rows => rows.filter(row => row.id !== comment.id)); setTotal(n => Math.max(0, n - 1));
+              onTotalChange?.(Math.max(0, total - 1));
               if (editingId === comment.id) setEditingId(null);
             });
           }}>삭제</button>}
@@ -82,4 +88,3 @@ export function ItemComments({ infoId }: { infoId: number }) {
     </form>
   </section>;
 }
-

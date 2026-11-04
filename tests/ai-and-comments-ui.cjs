@@ -42,9 +42,10 @@ const resolve=async(index,value)=>act(async()=>jobs[index].resolve({query:jobs[i
   assert(container.textContent.includes('인터넷에서 추가 확인'),'available before internal answer finishes');
   await click('인터넷에서 추가 확인');assert.deepEqual(calls,[['포스 전원','auto'],['포스 전원','web']]);
   await resolve(0,{summary:'내부 자료 확인 답변',coverage:'partial',protocol_version:2});
-  const web={status:'complete',summary:'외부 점검 방법 [웹 자료 1]',sources:[{number:1,title:'제조사 안내',url:'https://example.com/manual'}]};
+  const web={status:'complete',summary:'외부 점검 방법 [웹 자료 1]',sources:[{number:1,title:'제조사 안내',url:'https://example.com/manual',body_checked:true,evidence_quote:'실제 본문에 있는 점검 안내'}]};
   await resolve(1,{web});
   assert(container.textContent.includes('내부 자료 확인 답변'));assert(container.textContent.includes('외부 점검 방법'));assert(container.textContent.includes('https://example.com/manual'));
+  assert(container.textContent.includes('본문 확인'));assert.equal(container.querySelector('blockquote').textContent,'실제 본문에 있는 점검 안내');
   // Saving the web answer retains source URLs, with the existing correction flow.
   await act(async()=>[...container.querySelectorAll('button')].filter(b=>b.textContent==='답변 수정·저장')[1].click());
   assert(container.querySelector('textarea').value.includes('https://example.com/manual'));
@@ -56,24 +57,28 @@ const resolve=async(index,value)=>act(async()=>jobs[index].resolve({query:jobs[i
   await act(async()=>root.unmount());
 
   // Lazy comments, safe text, author-only editing, master deletion, and no mount-time fetch on cards.
-  let fetches=0;const comment={id:'c1',info_id:1,author_id:'someone-else',author_username:'other',body:'<script>unsafe()</script>',created_at:'date',updated_at:null};
+  let fetches=0,remoteTotal=3;const reported=[];const report=total=>reported.push(total);
+  const comment={id:'c1',info_id:1,author_id:'someone-else',author_username:'other',body:'<script>unsafe()</script>',created_at:'date',updated_at:null};
   const {ItemComments}=load('src/components/ItemComments.tsx',{
     './AccountGate':{useAccount:()=>({profile})},'./HighlightText':highlight,
-    '../utils/helpers':{formatDate:x=>x},'../lib/comments':{fetchComments:async()=>{fetches++;return {comments:[comment],total:1};}},
+    '../utils/helpers':{formatDate:x=>x},'../lib/comments':{fetchComments:async()=>{fetches++;return {comments:[comment],total:remoteTotal};},deleteComment:async()=>{}},
   });
   const {ItemCard}=load('src/components/ItemCard.tsx',{
     './ItemComments':{ItemComments},'./HighlightText':highlight,
     '../utils/helpers':{formatDate:x=>x,parseImageUrls:()=>[],parseCategories:()=>[],normalizeContentText:x=>x},
   });
   root=createRoot(container);
-  await act(async()=>root.render(React.createElement(ItemCard,{item:{id:1,키워드:'',키워드2:'제목',내용:'내용'},searchQuery:'',isFavorite:false})));
-  assert.equal(fetches,0);await click('댓글');assert.equal(fetches,1);
+  await act(async()=>root.render(React.createElement(ItemCard,{item:{id:1,키워드:'',키워드2:'제목',내용:'내용'},commentCount:3,onCommentCountChange:(_id,total)=>report(total),searchQuery:'',isFavorite:false})));
+  assert.equal(fetches,0);assert(container.querySelector('[aria-label="댓글 3개 보기"]'), 'Count visible before comments are loaded');
+  await act(async()=>container.querySelector('[aria-label="댓글 3개 보기"]').click());assert.equal(fetches,1);
+  assert.equal(reported.at(-1),3);
   const section=container.querySelector('section');assert.equal(section.querySelector('script'),null);assert(section.textContent.includes('<script>'));
   assert(![...section.querySelectorAll('button')].some(b=>b.textContent==='수정'||b.textContent==='삭제'));
-  profile.role='master';await act(async()=>root.render(React.createElement(ItemComments,{infoId:1})));
+  profile.role='master';await act(async()=>root.render(React.createElement(ItemComments,{infoId:1,onTotalChange:report})));
   assert([...container.querySelectorAll('button')].some(b=>b.textContent==='삭제'));assert(![...container.querySelectorAll('button')].some(b=>b.textContent==='수정'));
   comment.author_id=profile.id;await click('새로고침');await click('수정');assert.equal(container.querySelector('textarea[aria-label="댓글 수정"]').value,comment.body);
+  await click('취소');remoteTotal=5;await click('새로고침');assert.equal(reported.at(-1),5);
+  window.confirm=()=>true;await click('삭제');assert.equal(reported.at(-1),4,'Delete immediately updates parent count');
   await act(async()=>root.unmount());dom.window.close();
   console.log('PASS: manual web during analysis, internal answer preserved, cited corrections saved, stale results suppressed, lazy comments and author/master controls');
 })().catch(error=>{console.error(error);process.exit(1);});
-

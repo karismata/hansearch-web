@@ -57,6 +57,10 @@ export function App() {
 
   // Data State
   const [items, setItems] = useState<InfoItem[]>([]);
+  const [commentCounts, setCommentCounts] = useState<Record<number, number>>({});
+  const handleCommentCountChange = useCallback((id: number, total: number) => {
+    setCommentCounts(current => current[id] === total ? current : { ...current, [id]: total });
+  }, []);
   const [favorites, setFavorites] = useState<number[]>(getStoredFavorites());
   const [tags, setTags] = useState<string[]>(getStoredTags());
 
@@ -122,6 +126,7 @@ export function App() {
     try {
       const data = await fetchAllItems(targetConfig);
       setItems(data);
+      setCommentCounts(Object.fromEntries(data.filter(item => item.id != null).map(item => [item.id!, item.comment_count || 0])));
       setIsConnected(true);
     } catch (err: any) {
       console.error('Failed to load items:', err);
@@ -593,6 +598,8 @@ export function App() {
                 <ItemCard
                   key={item.id}
                   item={item}
+                  commentCount={commentCounts[item.id!] || 0}
+                  onCommentCountChange={handleCommentCountChange}
                   searchQuery={activeSearch}
                   isFavorite={favorites.includes(item.id!)}
                   onToggleFavorite={handleToggleFavorite}
@@ -645,4 +652,3 @@ export function App() {
 }
 
 export default App;
-
