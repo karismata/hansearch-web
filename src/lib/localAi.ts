@@ -32,6 +32,7 @@ export interface AISearchResult {
   web_available?: boolean;
   web?: WebAnswer;
   consultation_summary?: string;
+  consultation_status?: { status: string; files: number; count: number; matches: number; errors?: number };
   consultations?: Array<{ source: string; sheet: string; row: number; memo: string; action: string }>;
 }
 

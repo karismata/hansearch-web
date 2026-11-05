@@ -99,6 +99,15 @@ class ConsultationTests(unittest.TestCase):
         self.assertIn('미검증', result['consultation_summary'])
         web.assert_called_once_with('포스 전원이 안켜져', None)
 
+    def test_barcode_aliases_generic_failure_and_unrelated_memos(self):
+        server._consultation_cache = {'synthetic': {'rows': [
+            {'source': '2026/2026-10.xlsx', 'sheet': 'Sheet1', 'row': 3, 'memo': '바코드 인식 불량으로 문의', 'action': '연결 상태 확인 안내'},
+            {'source': '2026/2026-10.xlsx', 'sheet': 'Sheet1', 'row': 4, 'memo': '포스 프린터 종이 공급 불가 문의', 'action': '용지 장착 확인 안내'},
+        ]}}
+        for query in ('바코드기 정상작동 안됨', '바코드 리더기 정상 작동 안돼요', '스캐너 안됨'):
+            self.assertEqual([row['row'] for row in server.find_consultations(query)], [3])
+        self.assertEqual(server.find_consultations('정상작동 안됨'), [])
+
     def test_bad_headers_and_entities_rejected(self):
         workbook(self.path, [['상담메모 아님', '처리내용 아님']])
         self.assertEqual(server.sync_consultations()['errors'], 1)

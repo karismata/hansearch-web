@@ -509,6 +509,7 @@ def analyze_internal(query: str, results: list[dict[str, Any]], consultations=No
         "질문의 해결 방법이 자료에 있으면 sufficient다. 유사도 점수로 해결 가능성을 단정하지 마라. "
         "source_ids에는 실제 관련된 제공 자료 ID만 넣고 none이면 빈 배열로 하라. "
         "summary는 한국어로 예상 원인→확인 방법→처리 순서로 간결하게 작성하라. "
+        "각 항목은 빈 줄로 나누고, 처리 순서는 각 번호마다 새 문단에 써라. "
         "내부 답변은 자료로 확인되는 내용만 사용하고 부족한 점을 명시하라. "
         "자료에 없는 비밀번호, 초기화, 키 다운로드, 결제 설정을 만들지 마라. "
         "인용은 [자료 ID: 숫자]로 표시하라. JSON만 반환하라." + consultation_prompt,
@@ -815,14 +816,20 @@ def sync_consultations() -> dict[str, Any]:
         return dict(_consultation_status)
 
 
+def consultation_text(text: str) -> str:
+    text = re.sub(r"바코드\s*(?:리더기?|스캐너|기)|barcode\s*(?:scanner|reader)?|스캐너", "바코드", text, flags=re.IGNORECASE)
+    return re.sub(r"정상\s*작동", "정상작동", text)
+
+
 def find_consultations(query: str) -> list[dict[str, Any]]:
     with _consultation_lock:
         rows = [row for file in _consultation_cache.values() for row in file["rows"]]
+    query = consultation_text(query)
     intent = web_intent(query)
-    terms = web_query_terms(query)
+    terms = web_query_terms(query) - {"정상작동", "작동", "안됨", "안돼", "안되", "안돼요", "안되요", "안되는데", "불가", "되지", "않아", "정상"}
     matches, seen = [], set()
     for row in rows:
-        memo, text = row["memo"], row["memo"] + "\n" + row["action"]
+        memo, text = consultation_text(row["memo"]), row["memo"] + "\n" + row["action"]
         actual = web_intent(memo)
         if intent["devices"] and not intent["devices"].intersection(actual["devices"]):
             continue
@@ -850,6 +857,7 @@ def search(query: str, limit: int = 8, *, mode: str = "auto", progress=None) -> 
         result["web"] = web_search_answer(normalized, progress)
         return result
     consultations = find_consultations(normalized)
+    result["consultation_status"] = {**_consultation_status, "matches": len(consultations)}
     if consultations:
         result["consultations"] = consultations
     if progress:

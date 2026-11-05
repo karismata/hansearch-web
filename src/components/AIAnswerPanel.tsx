@@ -9,11 +9,23 @@ interface Props {
   variant?: 'internal' | 'web';
 }
 
+export function formatAiAnswer(text: string): string {
+  const sections = text.replace(/[ \t]+(?=(?:예상 원인|확인 방법|처리 순서)\s*[:：])/g, '\n\n')
+    .replace(/(처리 순서\s*[:：])[ \t]*(?:\r?\n)?/g, '$1\n');
+  // Restrict numbered-list formatting to the procedure section.
+  const start = sections.search(/처리 순서\s*[:：]/);
+  if (start < 0) return sections;
+  const before = sections.slice(0, start);
+  const procedure = sections.slice(start);
+  if (!/(?:^|\s)1\.[ \t]+/.test(procedure) || !/(?:^|\s)2\.[ \t]+/.test(procedure)) return sections;
+  return before + procedure.replace(/[ \t]+(?=[1-9]\d?\.[ \t]+)/g, '\n\n');
+}
+
 export function AIAnswerPanel({ result, onSave, variant = 'internal' }: Props) {
   const sources = variant === 'web' ? result.web?.sources || [] : [];
   const consultations = variant === 'internal' ? result.consultations || [] : [];
   const legacyDump = variant === 'web' && result.summary.includes('본문 발췌 (해결 방법 검증 전)');
-  const displayAnswer = legacyDump ? '자료는 찾았지만 답변 요약을 완료하지 못했습니다. 다시 검색하거나 출처·원문 보기를 확인해 주세요.' : result.summary;
+  const displayAnswer = legacyDump ? '자료는 찾았지만 답변 요약을 완료하지 못했습니다. 다시 검색하거나 출처·원문 보기를 확인해 주세요.' : formatAiAnswer(result.summary || '');
   const editableAnswer = (displayAnswer || '') + (sources.length ? '\n\n참고 자료:\n' + sources.map(source => `[웹 자료 ${source.number}] ${source.title}\n${source.url}`).join('\n') : '') +
     (consultations.length ? '\n\n미검증 상담 참고 · 해결 확인 아님\n' + (result.consultation_summary || '') + '\n' + consultations.map(item => `${item.source} · ${item.sheet} ${item.row}행\n문의 기록: ${item.memo}\n처리 기록: ${item.action}`).join('\n\n') : '');
   const [editing, setEditing] = useState(false);
@@ -63,8 +75,14 @@ export function AIAnswerPanel({ result, onSave, variant = 'internal' }: Props) {
         </form>
       ) : (
         <>
-          <div className="text-sm text-slate-700 whitespace-pre-wrap break-words"><HighlightText query="" text={displayAnswer?.trim() || '관련 자료는 찾았지만 한주AI 답변이 비어 있습니다. 답변을 직접 수정해 저장할 수 있습니다.'} /></div>
+          <div className="text-sm leading-7 text-slate-700 whitespace-pre-wrap break-words"><HighlightText query="" text={displayAnswer?.trim() || '관련 자료는 찾았지만 한주AI 답변이 비어 있습니다. 답변을 직접 수정해 저장할 수 있습니다.'} /></div>
           {variant === 'internal' && result.coverage === 'partial' && <p className="mt-3 text-xs text-violet-700">일부 내용만 내부 자료로 확인했습니다. 부족한 내용은 인터넷에서 보완 검색할 수 있습니다.</p>}
+          {variant === 'internal' && result.consultation_status && consultations.length === 0 && <div className="mt-3 border-t border-violet-200 pt-3 text-xs text-slate-600">
+            <p className="font-semibold text-violet-700">미검증 상담 참고 · 관련 사례 0건</p>
+            <p className="mt-1">{result.consultation_status.count > 0
+              ? `상담 기록 ${result.consultation_status.count.toLocaleString()}건 중 이 질문과 일치하는 사례를 찾지 못했습니다. 기기명이나 오류 문구를 바꿔 검색해 보세요.`
+              : result.consultation_status.status === 'not_started' ? '상담 기록을 준비 중입니다. 잠시 후 다시 검색해 주세요.' : '현재 연결된 상담 참고 기록이 없습니다.'}</p>
+          </div>}
           {consultations.length > 0 && <div className="mt-3 border-t border-violet-200 pt-3 text-xs text-slate-600">
             <p className="font-semibold text-violet-700">미검증 상담 참고 ({consultations.length})</p>
             <p className="mt-1">과거 상담 기록이며, 해결이 확인된 지침이 아닙니다. 정식 한서치 자료를 우선 확인해 주세요.</p>
