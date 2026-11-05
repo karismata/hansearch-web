@@ -43,6 +43,10 @@ local-ai/.env.*
 local-ai/*.web-backup
 local-ai/.server-update-*.py
 local-ai/data/
+# Private monthly consultation exports must never ship with the website.
+*.xlsx
+*.xls
+*.xlsm
+상담이력/
 __pycache__/
 *.py[cod]
-

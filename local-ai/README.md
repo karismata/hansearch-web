@@ -1,5 +1,7 @@
 # HanSearch Local AI (Mac mini)
 
+월별 상담 엑셀을 미검증 참고로 활용하려면 [상담 이력 폴더·동기화 안내](../docs/consultation-references.md)를 확인하세요. 기본 위치는 `~/Documents/Hansearch AI/상담이력/YYYY/YYYY-MM.xlsx`입니다.
+
 인터넷 보완 검색 및 기존 설치 업데이트: [내부 우선 AI 검색·댓글 안내](../docs/ai-web-and-comments.md). 검색은 Tavily 무료 플랜을 사용하며 기존 `.env`에 `TAVILY_API_KEY`를 추가합니다. 로컬 답변 생성은 계속 Ollama를 사용합니다. 기존 설정 파일을 예제로 덮어쓰지 않습니다.
 
 This service is the Mac mini side of HanSearch AI search. It reads the existing

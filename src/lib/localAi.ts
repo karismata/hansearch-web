@@ -31,6 +31,8 @@ export interface AISearchResult {
   coverage?: 'sufficient' | 'partial' | 'none' | 'unknown';
   web_available?: boolean;
   web?: WebAnswer;
+  consultation_summary?: string;
+  consultations?: Array<{ source: string; sheet: string; row: number; memo: string; action: string }>;
 }
 
 export interface WebAnswer {

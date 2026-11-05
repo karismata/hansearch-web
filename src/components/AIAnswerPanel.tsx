@@ -11,9 +11,11 @@ interface Props {
 
 export function AIAnswerPanel({ result, onSave, variant = 'internal' }: Props) {
   const sources = variant === 'web' ? result.web?.sources || [] : [];
+  const consultations = variant === 'internal' ? result.consultations || [] : [];
   const legacyDump = variant === 'web' && result.summary.includes('본문 발췌 (해결 방법 검증 전)');
   const displayAnswer = legacyDump ? '자료는 찾았지만 답변 요약을 완료하지 못했습니다. 다시 검색하거나 출처·원문 보기를 확인해 주세요.' : result.summary;
-  const editableAnswer = (displayAnswer || '') + (sources.length ? '\n\n참고 자료:\n' + sources.map(source => `[웹 자료 ${source.number}] ${source.title}\n${source.url}`).join('\n') : '');
+  const editableAnswer = (displayAnswer || '') + (sources.length ? '\n\n참고 자료:\n' + sources.map(source => `[웹 자료 ${source.number}] ${source.title}\n${source.url}`).join('\n') : '') +
+    (consultations.length ? '\n\n미검증 상담 참고 · 해결 확인 아님\n' + (result.consultation_summary || '') + '\n' + consultations.map(item => `${item.source} · ${item.sheet} ${item.row}행\n문의 기록: ${item.memo}\n처리 기록: ${item.action}`).join('\n\n') : '');
   const [editing, setEditing] = useState(false);
   const [question, setQuestion] = useState(result.query);
   const [answer, setAnswer] = useState(editableAnswer);
@@ -63,6 +65,18 @@ export function AIAnswerPanel({ result, onSave, variant = 'internal' }: Props) {
         <>
           <div className="text-sm text-slate-700 whitespace-pre-wrap break-words"><HighlightText query="" text={displayAnswer?.trim() || '관련 자료는 찾았지만 한주AI 답변이 비어 있습니다. 답변을 직접 수정해 저장할 수 있습니다.'} /></div>
           {variant === 'internal' && result.coverage === 'partial' && <p className="mt-3 text-xs text-violet-700">일부 내용만 내부 자료로 확인했습니다. 부족한 내용은 인터넷에서 보완 검색할 수 있습니다.</p>}
+          {consultations.length > 0 && <div className="mt-3 border-t border-violet-200 pt-3 text-xs text-slate-600">
+            <p className="font-semibold text-violet-700">미검증 상담 참고 ({consultations.length})</p>
+            <p className="mt-1">과거 상담 기록이며, 해결이 확인된 지침이 아닙니다. 정식 한서치 자료를 우선 확인해 주세요.</p>
+            {result.consultation_summary && <p className="mt-2 whitespace-pre-wrap break-words">{result.consultation_summary}</p>}
+            <details className="mt-2"><summary className="cursor-pointer">관련 상담 기록 보기</summary>
+              <div className="mt-2 space-y-3">{consultations.map(item => <div key={`${item.source}-${item.sheet}-${item.row}`}>
+                <p className="font-medium">{item.source} · {item.sheet} {item.row}행</p>
+                <p className="whitespace-pre-wrap break-words">문의 기록: {item.memo}</p>
+                <p className="whitespace-pre-wrap break-words">처리 기록: {item.action}</p>
+              </div>)}</div>
+            </details>
+          </div>}
           {sources.length > 0 && <div className="mt-3 border-t border-violet-200 pt-3 text-xs text-slate-600">
             <p className="mb-2 font-semibold text-violet-700">참고 링크{result.web?.cached ? ' · 최근 검색 재사용' : ''}</p>
             <div className="space-y-2">{sources.map(source => <div key={source.number}>
