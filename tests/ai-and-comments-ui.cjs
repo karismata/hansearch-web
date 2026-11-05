@@ -98,6 +98,17 @@ const resolve=async(index,value)=>act(async()=>jobs[index].resolve({query:jobs[i
   assert(container.querySelector('[role="alert"]').textContent.includes('삭제되었거나'));
   assert.equal(container.querySelectorAll('article[data-item]').length,0,'Missing targets do not expose a stale cached article');
   await act(async()=>root.unmount());
+  root=createRoot(container);
+  let consultationSave;
+  await act(async()=>root.render(React.createElement(AIAnswerPanel,{result:{query:'포스 전원',summary:'정식 자료 답변',results:[],synced_count:0,consultation_summary:'미검증 상담 참고: 연결 점검 기록이 있습니다.',consultations:[{source:'2026/2026-10.xlsx',sheet:'Sheet1',row:3,memo:'포스 전원 문의',action:'전원 연결 점검 안내'}]},onSave:async(q,a)=>{consultationSave=[q,a];}})));
+  assert(container.textContent.includes('미검증 상담 참고 (1)'));
+  assert.equal(container.querySelector('details').open,false,'Unverified raw consultation records start collapsed');
+  assert(container.querySelector('details').textContent.includes('Sheet1 3행'));
+  await click('답변 수정·저장');
+  await act(async()=>container.querySelector('form').dispatchEvent(new window.Event('submit',{bubbles:true,cancelable:true})));
+  assert(consultationSave[1].includes('미검증 상담 참고 · 해결 확인 아님'));
+  assert(consultationSave[1].includes('2026/2026-10.xlsx'));
+  await act(async()=>root.unmount());
 
   root=createRoot(container);
   const legacy='본문 자료를 읽었지만 한주AI가 해결 방법 정리를 완료하지 못했습니다. [웹 자료 1] 본문 발췌 (해결 방법 검증 전) ' + '장황한 페이지 원문 '.repeat(100);
