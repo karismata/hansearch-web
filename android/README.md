@@ -7,3 +7,14 @@ This Android shell opens the live HanSearch service (`https://hansearch-web.page
 GitHub Actions builds a debug APK when Android project files are merged into `main`, or when the workflow is started manually. Download `app-debug.apk` from the `HanSearch-Android-APK` artifact on the completed workflow run, then install it on an Android device. Android may ask you to allow installation from the browser or file manager used to open the APK.
 
 The debug APK is suitable for direct installation and testing. Publishing through Google Play requires a separately signed release build.
+
+## Photo attachments (1.0.1)
+
+The WebView forwards image inputs to Android's system document picker and returns
+single/multiple selected content URIs to the page. Canceling the picker or closing
+the activity releases its callback. No broad storage or media-read permission is
+required for these user-selected provider URIs. This native change requires a new
+APK installation; subsequent web image processing still uses the live website.
+
+On a device, check selecting one photo, selecting multiple photos, canceling and
+selecting again, and saving a record after its uploaded thumbnails appear.
