@@ -68,6 +68,17 @@ public class MainActivity extends Activity {
                 return true;
             }
         });
+        // WebView cannot save APK responses itself. Use the system browser's
+        // download handling, including links with an HTML download attribute.
+        webView.setDownloadListener((url, userAgent, disposition, mimeType, length) -> {
+            Uri uri = Uri.parse(url);
+            String scheme = uri.getScheme();
+            if ("https".equalsIgnoreCase(scheme) || "http".equalsIgnoreCase(scheme)) {
+                openInBrowser(uri);
+            } else {
+                Toast.makeText(this, "이 파일은 휴대폰 브라우저에서 내려받아 주세요.", Toast.LENGTH_LONG).show();
+            }
+        });
         setContentView(webView);
         webView.loadUrl("https://" + HANSEARCH_HOST);
     }
@@ -98,15 +109,25 @@ public class MainActivity extends Activity {
             return false;
         }
         if (HANSEARCH_HOST.equalsIgnoreCase(uri.getHost())) {
+            if ("/downloads/HanSearch.apk".equalsIgnoreCase(uri.getPath())) {
+                openInBrowser(uri);
+                return true;
+            }
             return false;
         }
+        openInBrowser(uri);
+        return true;
+    }
 
+    private void openInBrowser(Uri uri) {
         Intent intent = new Intent(Intent.ACTION_VIEW, uri);
-        if (intent.resolveActivity(getPackageManager()) != null) {
+        intent.addCategory(Intent.CATEGORY_BROWSABLE);
+        // Direct launch avoids package-visibility false negatives on Android 11+.
+        try {
             startActivity(intent);
-            return true;
+        } catch (ActivityNotFoundException | SecurityException error) {
+            Toast.makeText(this, "크롬 또는 삼성 인터넷에서 링크를 열어 주세요.", Toast.LENGTH_LONG).show();
         }
-        return false;
     }
 
     @Override

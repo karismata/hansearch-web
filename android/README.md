@@ -18,3 +18,15 @@ APK installation; subsequent web image processing still uses the live website.
 
 On a device, check selecting one photo, selecting multiple photos, canceling and
 selecting again, and saving a record after its uploaded thumbnails appear.
+
+## APK downloads (1.0.2)
+
+APK navigation and WebView download responses open in the system browser to save
+the file. Browser launch uses ACTION_VIEW directly and handles missing/disabled
+browser apps without relying on package-visibility-sensitive resolveActivity.
+No broad storage permission is added. Older installed shells require opening the
+website/download URL in Chrome or Samsung Internet once to install this fix.
+
+Device checks: the menu's app download opens the browser, the downloaded file is
+an APK, normal HanSearch links stay in-app, and external knowledge links still
+open in the browser. The photo chooser from 1.0.1 remains enabled.
