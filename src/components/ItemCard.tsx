@@ -38,6 +38,12 @@ const ItemCardComponent: React.FC<ItemCardProps> = ({
   const [commentsOpen, setCommentsOpen] = useState(false);
   const [allComments, setAllComments] = useState(false);
   useEffect(() => {
+    if (!commentsOpen) return;
+    const back = (event: Event) => { event.preventDefault(); setCommentsOpen(false); setAllComments(false); };
+    window.addEventListener('hansearch-back', back);
+    return () => window.removeEventListener('hansearch-back', back);
+  }, [commentsOpen]);
+  useEffect(() => {
     if (notificationComment) { setCommentsOpen(true); setAllComments(false); }
   }, [notificationComment]);
   const handleTotalChange = useCallback((total: number) => {

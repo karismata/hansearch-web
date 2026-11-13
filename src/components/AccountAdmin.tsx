@@ -59,7 +59,7 @@ export function AccountAdmin({ onClose }: { onClose: () => void }) {
     }, '동기화 연결키를 등록했습니다.');
   };
   const ranked = [...stats].sort((a,b) => Number(b[sort])-Number(a[sort]) || a.username.localeCompare(b.username));
-  return <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-3 sm:p-6">
+  return <div data-native-back-busy={busy ? 'true' : undefined} className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-3 sm:p-6">
     <section role="dialog" aria-modal="true" aria-labelledby="account-admin-title" className="flex max-h-[90dvh] w-full max-w-4xl flex-col rounded-2xl bg-white shadow-xl">
       <div className="flex items-center justify-between border-b border-slate-200 p-4"><h2 id="account-admin-title" className="font-bold text-slate-800">계정 관리 · 사용 통계</h2><button type="button" onClick={onClose} disabled={busy} aria-label="관리 화면 닫기" className="p-2"><X size={20} /></button></div>
       <div className="space-y-6 overflow-y-auto p-4 sm:p-6">
@@ -95,4 +95,3 @@ export function AccountAdmin({ onClose }: { onClose: () => void }) {
     </section>
   </div>;
 }
-

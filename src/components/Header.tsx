@@ -43,7 +43,9 @@ export function Header({ isConnected, totalCount, filteredCount, isLoading, onRe
     };
     document.addEventListener('pointerdown', outside);
     document.addEventListener('keydown', escape);
-    return () => { document.removeEventListener('pointerdown', outside); document.removeEventListener('keydown', escape); };
+    const back = (event: Event) => { event.preventDefault(); setOpen(false); };
+    window.addEventListener('hansearch-back', back);
+    return () => { document.removeEventListener('pointerdown', outside); document.removeEventListener('keydown', escape); window.removeEventListener('hansearch-back', back); };
   }, [open]);
   const action = (callback: () => void) => { setOpen(false); callback(); };
   const itemClass = 'flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-blue-500';

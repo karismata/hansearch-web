@@ -61,6 +61,7 @@ appMocks['./components/SearchBar'] = {
     React.createElement('input', { 'aria-label': '검색어', value: query, readOnly: true }),
     React.createElement('button', { onClick: () => onChangeQuery('작성 중인 검색어') }, '입력')),
 };
+appMocks['./lib/androidBack'] = load('src/lib/androidBack.ts', {});
 const { App } = load('src/App.tsx', appMocks);
 (async () => {
   const container = document.getElementById('root'), root = createRoot(container);

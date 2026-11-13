@@ -4,9 +4,23 @@ This Android shell opens the live HanSearch service (`https://hansearch-web.page
 
 ## Build
 
-GitHub Actions builds a debug APK when Android project files are merged into `main`, or when the workflow is started manually. Download `app-debug.apk` from the `HanSearch-Android-APK` artifact on the completed workflow run, then install it on an Android device. Android may ask you to allow installation from the browser or file manager used to open the APK.
+Pull requests build a debug APK for validation. Production builds require the fixed
+`HANSEARCH_SIGNING_BUNDLE` repository secret and publish a signed release APK to
+`downloads/HanSearch.apk`. CI increments versionCode with the workflow run number.
+A missing secret or different certificate fails the build without publishing a
+temporary-key APK. Only the public fingerprint in `signing-certificate.sha256`
+belongs in source control; keep the private bundle backed up outside the repo.
 
-The debug APK is suitable for direct installation and testing. Publishing through Google Play requires a separately signed release build.
+One-time setup: repository Settings → Secrets and variables → Actions → New
+repository secret. Name: `HANSEARCH_SIGNING_BUNDLE`. Value: the prepared private
+JSON bundle containing the base64 PKCS12 key, password and alias. Never paste it
+into a chat, commit it or attach it to a public issue. GitHub Actions restores it
+in the runner's temporary directory, checks its public fingerprint using keytool,
+signs the release and removes the temporary file after the build.
+
+The previous 1.0.x debug keys were generated on disposable CI runners. The first
+switch to the stable release requires uninstall/reinstall once. Later signed
+releases with the same package, key and increasing versionCode install as updates.
 
 ## Photo attachments (1.0.1)
 
@@ -30,3 +44,18 @@ website/download URL in Chrome or Samsung Internet once to install this fix.
 Device checks: the menu's app download opens the browser, the downloaded file is
 an APK, normal HanSearch links stay in-app, and external knowledge links still
 open in the browser. The photo chooser from 1.0.1 remains enabled.
+
+## Back navigation (1.1.0)
+
+The native back action asks the live page to handle its current state. Photo,
+data editor, settings, help and account screens return to the home list; search
+and filters reset and active AI requests are canceled. Open menus, notifications
+and comment panels consume back. Upload/save/account mutations must finish first.
+At home, the first press displays a short exit notice; another within two seconds
+finishes the activity. Navigation, backgrounding and timeouts reset exit arming.
+Android 13+ predictive back and the legacy button use the same handler. A page
+that is loading or unavailable still gets guarded exit, never immediate exit.
+
+Device checks: photo/editor back to home, search reset, busy upload/save, keyboard
+back, first/second press at home, waiting longer than two seconds, and leaving
+the app between presses. Unsubmitted editor text is discarded when going home.
