@@ -16,12 +16,19 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: android-apk-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+
+      - name: Set increasing APK version code
+        run: echo "HANSEARCH_VERSION_CODE=$((1000 + GITHUB_RUN_NUMBER))" >> "$GITHUB_ENV"
 
       - name: Set up Java
         uses: actions/setup-java@v4
@@ -42,16 +49,35 @@ jobs:
         with:
           gradle-version: '8.9'
 
-      - name: Build debug APK
+      - name: Test native back navigation
+        run: gradle -p android testDebugUnitTest --no-daemon
+
+      - name: Restore fixed signing identity
+        if: github.event_name != 'pull_request'
+        env:
+          HANSEARCH_SIGNING_BUNDLE: ${{ secrets.HANSEARCH_SIGNING_BUNDLE }}
+        run: python3 android/scripts/prepare-signing.py
+
+      - name: Build preview APK
+        if: github.event_name == 'pull_request'
         run: gradle -p android assembleDebug --no-daemon
+
+      - name: Build signed APK
+        if: github.event_name != 'pull_request'
+        run: gradle -p android assembleRelease --no-daemon
 
       - name: Prepare APK for download
         run: |
           mkdir -p downloads
-          cp android/app/build/outputs/apk/debug/app-debug.apk downloads/HanSearch.apk
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            cp android/app/build/outputs/apk/debug/app-debug.apk downloads/HanSearch.apk
+          else
+            cp android/app/build/outputs/apk/release/app-release.apk downloads/HanSearch.apk
+            "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose downloads/HanSearch.apk
+          fi
 
       - name: Publish APK to the website
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -70,3 +96,7 @@ jobs:
           path: downloads/HanSearch.apk
           if-no-files-found: error
           retention-days: 30
+
+      - name: Remove temporary signing key
+        if: always()
+        run: rm -f "$RUNNER_TEMP/hansearch-signing.p12"

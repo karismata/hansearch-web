@@ -35,15 +35,18 @@ const blank=()=>null;
 const components=Object.fromEntries(['ScrollToTop','AccountAdmin','AccountPassword','QuickTags','ItemCard','DataModal','SettingsModal','HelpModal','ImageLightbox'].map(name=>[`./components/${name}`,{[name]:blank}]));
 const supabase={getDefaultConfig:()=>({url:'https://example.test',anonKey:'public',tableName:'info'}),fetchAllItems:async()=>[{id:1,키워드:'분류',키워드2:'제목',내용:'자료'}]};
 const {App}=load('src/App.tsx',{
+  './lib/androidBack':load('src/lib/androidBack.ts'),
   ...components,...account,
   './lib/supabase':supabase,'./lib/accounts':{recordSearch:async()=>{}},
   './lib/notifications':{fetchNotificationContext:notification=>new Promise((resolve,reject)=>navigationRequests.push({notification,resolve,reject}))},
   './utils/helpers':{getStoredFavorites:()=>[],getStoredTags:()=>[],parseCategories:()=>[],saveStoredFavorites(){},saveStoredTags(){}},
   './lib/savedAiAnswers':{fetchSavedAiAnswer:async()=>null,saveAiAnswer:async(q,a)=>{saveCalls.push([q,a]);return {id:2,키워드:'AI 검증답변',키워드2:q,내용:a};}},
   './lib/localAi':{clearStoredAiToken(){},runAISearch:(q,status,options)=>new Promise((resolve,reject)=>{calls.push([q,options.mode||'auto']);jobs.push({q,status,options,resolve,reject});})},
+  './components/DataModal':{DataModal:({isOpen})=>isOpen?React.createElement('div',{'data-editor':true},'데이터 입력'):null},
+  './components/ImageLightbox':{ImageLightbox:({isOpen})=>isOpen?React.createElement('div',{'data-image-viewer':true},'이미지 확대'):null},
   './components/Header':{Header:({children,onGoHome,onToggleFilters,onOpenNotification})=>React.createElement('header',null,
     React.createElement('button',{onClick:onGoHome},'홈'),React.createElement('button',{onClick:onToggleFilters},'옵션'),React.createElement('button',{onClick:()=>onOpenNotification(jumpNotice)},'알림 자료 열기'),children)},
-  './components/ItemCard':{ItemCard:props=>React.createElement('article',{'data-item':props.item.id,'data-thread':props.notificationThreadId,'data-target':props.notificationComment?.id},props.item.키워드2,props.item.내용)},
+  './components/ItemCard':{ItemCard:props=>React.createElement('article',{'data-item':props.item.id,'data-thread':props.notificationThreadId,'data-target':props.notificationComment?.id},props.item.키워드2,props.item.내용,React.createElement('button',{onClick:()=>props.onOpenImage(['https://example.test/image.jpg'],0)},'사진 열기'))},
   './components/SearchBar':{SearchFilters:props=>React.createElement('div',{'data-filters':true,'data-category':props.selectedCategory,'data-sort':props.sortOption,'data-favorites':props.showOnlyFavorites},
     React.createElement('button',{onClick:()=>props.onChangeCategory('분류')},'분류 선택'),
     React.createElement('button',{onClick:()=>props.onChangeSort('oldest')},'오래된순'),
@@ -51,7 +54,7 @@ const {App}=load('src/App.tsx',{
     React.createElement('input',{'aria-label':'검색어',value:props.query,readOnly:true}),
     React.createElement('button',{onClick:()=>props.onChangeQuery('포스 전원')},'질문 입력'),
     React.createElement('button',{onClick:props.onAiSearchSubmit},'AI 검색'),
-    React.createElement('button',{onClick:props.onSearchSubmit},'일반 검색'))},
+    React.createElement('button',{onClick:props.onSearchSubmit},'일반 검색'),React.createElement('button',{onClick:props.onAddData},'데이터 추가'))},
   './components/AIAnswerPanel':{AIAnswerPanel},
 });
 const container=document.getElementById('root');let root=createRoot(container);
@@ -59,6 +62,25 @@ const click=async text=>{const b=[...container.querySelectorAll('button')].find(
 const resolve=async(index,value)=>act(async()=>jobs[index].resolve({query:jobs[index].q,results:[],synced_count:1,...value}));
 (async()=>{
   await act(async()=>root.render(React.createElement(App)));
+  assert.equal(window.__hansearchHandleBack(),'home');
+  await click('질문 입력');
+  let backResult;
+  await act(async()=>{backResult=window.__hansearchHandleBack();});
+  assert.equal(backResult,'handled');
+  assert.equal(container.querySelector('[aria-label="검색어"]').value,'');
+  assert.equal(window.__hansearchHandleBack(),'home');
+  const busy=document.createElement('div');busy.dataset.nativeBackBusy='true';container.append(busy);
+  assert.equal(window.__hansearchHandleBack(),'busy','Saving/uploading cannot be abandoned by native back');busy.remove();
+  const intercept=event=>event.preventDefault();window.addEventListener('hansearch-back',intercept);
+  assert.equal(window.__hansearchHandleBack(),'handled','An open child panel consumes back without arming exit');
+  window.removeEventListener('hansearch-back',intercept);
+  await click('데이터 추가');assert(container.querySelector('[data-editor]'));
+  await act(async()=>{backResult=window.__hansearchHandleBack();});
+  assert.equal(backResult,'handled');assert(!container.querySelector('[data-editor]'));
+  await click('사진 열기');assert(container.querySelector('[data-image-viewer]'));
+  await act(async()=>{backResult=window.__hansearchHandleBack();});
+  assert.equal(backResult,'handled');assert(!container.querySelector('[data-image-viewer]'));
+  assert.equal(window.__hansearchHandleBack(),'home');
   await click('질문 입력');await click('AI 검색');
   assert(container.textContent.includes('인터넷에서 추가 확인'),'available before internal answer finishes');
   await click('인터넷에서 추가 확인');assert.deepEqual(calls,[['포스 전원','auto'],['포스 전원','web']]);

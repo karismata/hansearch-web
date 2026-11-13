@@ -35,6 +35,9 @@ android/app/build/
 android/local.properties
 *.jks
 *.keystore
+*.p12
+*.pfx
+*signing-bundle*.json
 
 # Local AI data and credentials
 local-ai/.env

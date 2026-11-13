@@ -33,7 +33,9 @@ export function NotificationBell({ onOpenNotification }: { onOpenNotification: (
     const outside = (event: PointerEvent) => { if (!root.current?.contains(event.target as Node)) setOpen(false); };
     const escape = (event: KeyboardEvent) => { if (event.key === 'Escape') { setOpen(false); button.current?.focus(); } };
     document.addEventListener('pointerdown', outside); document.addEventListener('keydown', escape);
-    return () => { document.removeEventListener('pointerdown', outside); document.removeEventListener('keydown', escape); };
+    const back = (event: Event) => { event.preventDefault(); setOpen(false); };
+    window.addEventListener('hansearch-back', back);
+    return () => { document.removeEventListener('pointerdown', outside); document.removeEventListener('keydown', escape); window.removeEventListener('hansearch-back', back); };
   }, [open]);
   const load = async (more = false) => {
     const request = ++listRequest.current;

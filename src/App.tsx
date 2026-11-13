@@ -21,6 +21,7 @@ import {
 } from './utils/helpers';
 
 import { Header } from './components/Header';
+import { useAndroidBack } from './lib/androidBack';
 import { SearchBar, SearchFilters } from './components/SearchBar';
 import { ScrollToTop } from './components/ScrollToTop';
 import { useAccount } from './components/AccountGate';
@@ -195,6 +196,25 @@ export function App() {
     setWebSearchStatus('pending');
     window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
   };
+
+  useAndroidBack(() => {
+    if (document.querySelector('[data-native-back-busy="true"]')) return 'busy';
+    const closePanels = new window.Event('hansearch-back', { cancelable: true });
+    window.dispatchEvent(closePanels);
+    const hasOverlay = isLightboxOpen || isDataModalOpen || isSettingsModalOpen || isHelpModalOpen || isAccountAdminOpen || isPasswordOpen;
+    const awayFromHome = searchInput || activeSearch || selectedCategory || sortOption !== 'latest' || showOnlyFavorites ||
+      isAiSearchMode || isAiSearching || isWebSearching || notificationView || searchOptionsOpen || window.scrollY > 4;
+    if (hasOverlay || awayFromHome) {
+      setIsLightboxOpen(false);
+      setIsDataModalOpen(false); setEditingItem(null);
+      setIsSettingsModalOpen(false); setIsHelpModalOpen(false);
+      setIsAccountAdminOpen(false); setIsPasswordOpen(false);
+      setSearchOptionsOpen(false);
+      handleGoHome();
+      return 'handled';
+    }
+    return closePanels.defaultPrevented ? 'handled' : 'home';
+  });
 
   const handleSearchSubmit = () => {
     resetAiRequests();

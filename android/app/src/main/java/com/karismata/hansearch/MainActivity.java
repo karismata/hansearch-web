@@ -7,6 +7,8 @@ import android.content.ActivityNotFoundException;
 import android.graphics.Color;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.Build;
+import android.os.SystemClock;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebView;
@@ -21,6 +23,9 @@ public class MainActivity extends Activity {
     private WebView webView;
     private static final int IMAGE_CHOOSER = 1001;
     private ValueCallback<Uri[]> imageSelection;
+    private final BackPressGuard backGuard = new BackPressGuard();
+    private boolean backInFlight;
+    private int backRequest;
 
     @SuppressLint("SetJavaScriptEnabled")
     @Override
@@ -80,6 +85,10 @@ public class MainActivity extends Activity {
             }
         });
         setContentView(webView);
+        if (Build.VERSION.SDK_INT >= 33) {
+            getOnBackInvokedDispatcher().registerOnBackInvokedCallback(
+                    android.window.OnBackInvokedDispatcher.PRIORITY_DEFAULT, this::handleAndroidBack);
+        }
         webView.loadUrl("https://" + HANSEARCH_HOST);
     }
 
@@ -133,11 +142,61 @@ public class MainActivity extends Activity {
     @Override
     @SuppressWarnings("deprecation")
     public void onBackPressed() {
+        handleAndroidBack();
+    }
+
+    private void handleAndroidBack() {
+        if (webView == null || backInFlight) return;
+        backInFlight = true;
+        final int request = ++backRequest;
+        webView.evaluateJavascript(
+                "(function(){try{return typeof window.__hansearchHandleBack==='function'?"
+                        + "window.__hansearchHandleBack():'unavailable';}catch(e){return 'unavailable';}})()",
+                result -> {
+                    if (request != backRequest || isFinishing()) return;
+                    backInFlight = false;
+                    if ("\"handled\"".equals(result)) {
+                        backGuard.reset();
+                    } else if ("\"busy\"".equals(result)) {
+                        backGuard.reset();
+                        Toast.makeText(this, "사진 업로드·저장이 끝난 뒤 다시 눌러 주세요.", Toast.LENGTH_SHORT).show();
+                    } else if ("\"home\"".equals(result)) {
+                        backAtHome();
+                    } else {
+                        backWithoutPageHandler();
+                    }
+                });
+        webView.postDelayed(() -> {
+            if (request != backRequest || !backInFlight || isFinishing()) return;
+            backInFlight = false;
+            ++backRequest;
+            backWithoutPageHandler();
+        }, 1500);
+    }
+
+    private void backWithoutPageHandler() {
         if (webView != null && webView.canGoBack()) {
+            backGuard.reset();
             webView.goBack();
         } else {
-            super.onBackPressed();
+            backAtHome();
         }
+    }
+
+    private void backAtHome() {
+        if (backGuard.shouldExit(SystemClock.elapsedRealtime())) {
+            finish();
+        } else {
+            Toast.makeText(this, "한 번 더 누르면 프로그램이 종료됩니다.", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    @Override
+    protected void onPause() {
+        backGuard.reset();
+        ++backRequest;
+        backInFlight = false;
+        super.onPause();
     }
 
     @Override
