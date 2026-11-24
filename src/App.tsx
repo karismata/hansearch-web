@@ -55,6 +55,11 @@ export function App() {
   const [isConnected, setIsConnected] = useState<boolean>(true);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [isRefreshingData, setIsRefreshingData] = useState(false);
+  const [dataRefreshWarning, setDataRefreshWarning] = useState('');
+  const dataRequestVersion = useRef(0);
+  const lastDataRefresh = useRef(0);
+  const dataInFlight = useRef<{ config: SupabaseConfig; promise: Promise<void> } | null>(null);
 
 
   // Data State
@@ -120,30 +125,78 @@ export function App() {
   const [lightboxImages, setLightboxImages] = useState<string[]>([]);
   const [lightboxIndex, setLightboxIndex] = useState(0);
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
+  const editorOpen = isDataModalOpen || isSettingsModalOpen || isAccountAdminOpen || isPasswordOpen;
+  const editorOpenRef = useRef(editorOpen);
+  editorOpenRef.current = editorOpen;
 
   // Initial Data Load
-  const loadData = useCallback(async (currentConfig?: SupabaseConfig) => {
+  const loadData = useCallback((currentConfig?: SupabaseConfig, quiet = false): Promise<void> => {
     const targetConfig = currentConfig || config;
-    setIsLoading(true);
-    setLoadError(null);
-
-    try {
-      const data = await fetchAllItems(targetConfig);
-      setItems(data);
-      setCommentCounts(Object.fromEntries(data.filter(item => item.id != null).map(item => [item.id!, item.comment_count || 0])));
-      setIsConnected(true);
-    } catch (err: any) {
-      console.error('Failed to load items:', err);
-      setIsConnected(false);
-      setLoadError(err.message || '데이터를 불러오는 중 오류가 발생했습니다.');
-    } finally {
-      setIsLoading(false);
-    }
+    if (quiet && dataInFlight.current?.config === targetConfig) return dataInFlight.current.promise;
+    const version = ++dataRequestVersion.current;
+    if (quiet) setIsRefreshingData(true);
+    else { setIsLoading(true); setIsRefreshingData(false); setLoadError(null); }
+    const promise = (async () => {
+      try {
+        const data = await fetchAllItems(targetConfig);
+        if (version !== dataRequestVersion.current) return;
+        // Category changes reset the data editor. Apply a fresh snapshot after it closes.
+        if (editorOpenRef.current) { lastDataRefresh.current = 0; return; }
+        setItems(data);
+        setCommentCounts(Object.fromEntries(data.filter(item => item.id != null).map(item => [item.id!, item.comment_count || 0])));
+        setIsConnected(true);
+        setLoadError(null);
+        setDataRefreshWarning('');
+        lastDataRefresh.current = Date.now();
+      } catch (err: any) {
+        if (version !== dataRequestVersion.current) return;
+        console.error('Failed to load items:', err);
+        setIsConnected(false);
+        if (quiet) setDataRefreshWarning('최신 자료를 확인하지 못해 이전에 불러온 목록으로 검색하고 있습니다. 연결을 확인하고 다시 검색해 주세요.');
+        else setLoadError(err.message || '데이터를 불러오는 중 오류가 발생했습니다.');
+      } finally {
+        if (version === dataRequestVersion.current) {
+          setIsLoading(false);
+          setIsRefreshingData(false);
+          dataInFlight.current = null;
+        }
+      }
+    })();
+    dataInFlight.current = { config: targetConfig, promise };
+    return promise;
   }, [config]);
 
   useEffect(() => {
     loadData();
+    return () => { dataRequestVersion.current++; dataInFlight.current = null; };
   }, [loadData]);
+
+  useEffect(() => {
+    const refresh = (event?: Event) => {
+      if (document.visibilityState === 'hidden' || editorOpenRef.current) return;
+      if (event?.type !== 'online' && Date.now() - lastDataRefresh.current < 30000) return;
+      void loadData(undefined, true);
+    };
+    window.addEventListener('focus', refresh);
+    window.addEventListener('online', refresh);
+    document.addEventListener('visibilitychange', refresh);
+    return () => {
+      window.removeEventListener('focus', refresh);
+      window.removeEventListener('online', refresh);
+      document.removeEventListener('visibilitychange', refresh);
+    };
+  }, [loadData]);
+
+  useEffect(() => {
+    if (!editorOpen && document.visibilityState !== 'hidden' && lastDataRefresh.current === 0) void loadData(undefined, true);
+  }, [editorOpen, loadData]);
+
+  const protectLocalMutation = () => {
+    dataRequestVersion.current++;
+    dataInFlight.current = null;
+    lastDataRefresh.current = 0;
+    setIsLoading(false); setIsRefreshingData(false);
+  };
 
   useEffect(() => {
     clearStoredAiToken();
@@ -217,6 +270,7 @@ export function App() {
   });
 
   const handleSearchSubmit = () => {
+    void loadData(undefined, true);
     resetAiRequests();
     if (searchInput.trim()) logSearch('search');
     setIsAiSearchMode(false);
@@ -259,6 +313,7 @@ export function App() {
       const saved = await fetchSavedAiAnswer(query, config);
       if (version !== requestVersion.current) return;
       if (saved) {
+        protectLocalMutation();
         setItems((prev) => [saved, ...prev.filter((item) => item.id !== saved.id)]);
         setAiSearchResult({ query, summary: saved.내용, saved_answer: true,
           results: saved.id ? [{ id: saved.id, score: 1 }] : [], synced_count: items.length });
@@ -306,6 +361,7 @@ export function App() {
   const handleSaveAiCorrection = async (question: string, answer: string) => {
     const version = requestVersion.current;
     const saved = await saveAiAnswer(question, answer, config);
+    protectLocalMutation();
     if (version !== requestVersion.current) return;
     resetAiRequests(); setAiQuery(question.trim());
     setItems((prev) => [saved, ...prev.filter((item) => item.id !== saved.id)]);
@@ -422,10 +478,12 @@ export function App() {
     if (editingItem && editingItem.id) {
       // Update
       const updated = await updateItem(editingItem.id, itemData, config);
+      protectLocalMutation();
       setItems((prev) => prev.map((item) => (item.id === editingItem.id ? updated : item)));
     } else {
       // Insert
       const inserted = await insertItem(itemData, config);
+      protectLocalMutation();
       setItems((prev) => [inserted, ...prev]);
     }
   };
@@ -434,6 +492,7 @@ export function App() {
     if (!window.confirm('이 항목을 정말 삭제하시겠습니까?')) return;
     try {
       await deleteItem(id, config);
+      protectLocalMutation();
       setItems((prev) => prev.filter((item) => item.id !== id));
       setNotificationView(view => view?.notification.info_id === id ? null : view);
       setFavorites((prev) => prev.filter((favId) => favId !== id));
@@ -464,7 +523,7 @@ export function App() {
         isConnected={isConnected}
         totalCount={items.length}
         filteredCount={visibleItems.length}
-        isLoading={isLoading}
+        isLoading={isLoading || isRefreshingData}
         onRefresh={() => loadData()}
         onOpenSettingsModal={() => setIsSettingsModalOpen(true)}
         onOpenHelpModal={() => setIsHelpModalOpen(true)}
@@ -556,6 +615,8 @@ export function App() {
 
           </div>
 
+          {isRefreshingData && <p role="status" className="mb-3 text-xs text-slate-500">최신 자료 확인 중...</p>}
+          {dataRefreshWarning && <p role="status" className="mb-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">{dataRefreshWarning}</p>}
           {notificationView && <div className="mb-3 rounded-xl border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <p className="font-semibold">{notificationView.notification.info_title || '알림의 자료'}</p>
@@ -611,7 +672,7 @@ export function App() {
           )}
 
           {/* Empty State */}
-          {!notificationView && !isLoading && !isAiSearching && !isAiSearchMode && visibleItems.length === 0 && (
+          {!notificationView && !isLoading && !isRefreshingData && !isAiSearching && !isAiSearchMode && visibleItems.length === 0 && (
             <div className="flex flex-col items-center justify-center py-16 px-4 bg-white rounded-2xl border border-slate-200 shadow-xs text-center">
               <div className="p-4 bg-slate-50 text-slate-400 rounded-2xl mb-3">
                 <SearchX size={40} />
